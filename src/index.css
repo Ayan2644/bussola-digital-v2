@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === CORES OFICIAIS LEGIÃO DIGITAL === */
+:root {
+  --azul-legiao: #008CFF;
+  --rosa-legiao: #ED195C;
+}
+
+/* === UTILITÁRIA PARA TEXTO AZUL-LEGIÃO === */
+.text-azul-legiao {
+  color: var(--azul-legiao);
+}
+
+/* === CLASSES PERSONALIZADAS === */
+.input {
+  @apply bg-zinc-800 text-white p-3 rounded-xl
+         border border-zinc-700 outline-none
+         focus:ring-2 focus:ring-[var(--rosa-legiao)];
+}
+
+.btn-legiao {
+  @apply w-full py-3 rounded-xl font-semibold text-white
+         bg-gradient-to-r from-[var(--azul-legiao)]
+                          to-[var(--rosa-legiao)]
+         hover:opacity-90 transition;
+}
+
+.text-gradient {
+  background: linear-gradient(
+    to right,
+    var(--azul-legiao),
+    var(--rosa-legiao)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* === TERMÔMETRO DE MÉTRICAS === */
+.thermometer-container {
+  @apply bg-zinc-800 p-6 rounded-lg border border-zinc-700;
+}
+
+.thermometer-container > h2 {
+  @apply text-azul-legiao text-xl font-semibold text-center mb-4;
+}
+
+.metric-thermometer {
+  @apply mb-6;
+}
+
+.metric-header {
+  @apply flex justify-between items-baseline;
+}
+
+.metric-name-therm {
+  @apply text-gray-200 font-medium;
+}
+
+.metric-value-therm {
+  @apply text-gray-100 font-semibold;
+}
+
+/* AQUI: torne a barra mais grossa com h-4 */
+.thermometer-bar {
+  @apply bg-zinc-700 rounded-full h-4 overflow-hidden mt-2;
+}
+
+.thermometer-level {
+  @apply h-full bg-gradient-to-r
+         from-[var(--rosa-legiao)]
+         to-[var(--azul-legiao)];
+}
+
+.thermometer-label {
+  @apply flex justify-between text-gray-400 text-xs mt-1;
+}
+
+.next-step {
+  @apply bg-zinc-900 text-gray-200 p-3 rounded mt-2 text-sm;
+}
