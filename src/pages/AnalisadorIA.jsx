@@ -1,183 +1,191 @@
-// src/pages/AnalisadorIA.jsx (Código completo e atualizado)
+// src/pages/AnalisadorIA.jsx (Versão final, segura e com histórico)
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
-import { Bot, LineChart, Zap } from 'lucide-react';
+import { Bot, LineChart, Zap, Save, LoaderCircle, Check, History, Trash2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
 
-// Conteúdo do seu documento de otimização
-const knowledgeBase = `
-Sobre o orçamento de campanha Advantage: O Orçamento de Campanha Advantage é mais adequado para campanhas com pelo menos dois conjuntos de anúncios. Ele gerencia automaticamente o orçamento da campanha em conjuntos de anúncios a fim de oferecer os melhores resultados gerais, distribuindo continuamente em tempo real para os conjuntos de anúncios com as melhores oportunidades.
-Sobre orçamentos diários: O valor médio que você deseja gastar por dia. A Meta pode gastar até 75% acima do seu orçamento diário em alguns dias, mas não gastará mais do que sete vezes seu orçamento diário em uma semana (domingo a sábado).
-Fase de aprendizado: É o período em que o sistema de veiculação ainda precisa aprender como um conjunto de anúncios pode ser veiculado. O desempenho é menos estável e o CPA geralmente é mais alto. Um conjunto de anúncios sai da fase de aprendizado após cerca de 50 eventos de otimização na semana após a última edição significativa.
-Edições significativas: Qualquer alteração no direcionamento, criativo, evento de otimização, adicionar um novo anúncio, ou pausar por mais de 7 dias reinicia a fase de aprendizado. Grandes alterações no orçamento ou lance também podem reiniciar a fase.
-Aprendizado limitado: Ocorre quando um conjunto de anúncios não está recebendo eventos de otimização suficientes para sair da fase de aprendizado, geralmente devido ao público pequeno, orçamento baixo, ou controle de lance/custo muito restritivo.
-Estratégias de lance: Volume mais alto (gastar o orçamento para obter o máximo de resultados), Meta de custo por resultado (manter o CPA em torno de um valor), Meta de ROAS (manter o retorno em torno de um valor), e Limite de lance (controle manual máximo).
-`;
-
-// O prompt mestre atualizado, agora com o nome e a base de conhecimento
-const masterPrompt = `
-Você é o "Gestor de Tráfego Sênior", um especialista supremo em Facebook Ads.
-
-🧠 Contexto:
-Seu QI é 180. Você é brutalmente honesto, direto e orientado a performance.
-Você já gerenciou e escalou múltiplas contas com milhões investidos e construiu empresas bilionárias a partir de campanhas de aquisição.
-Você domina o ecossistema da Meta, pensando em sistemas, ciclos e alavancas.
-Você é um grande analisador de canibalização de tráfego e entende os momentos ideais para escala vertical e horizontal.
-Sua principal fonte de conhecimento técnico sobre a plataforma Meta Ads é a base de conhecimento fornecida. Use-a para embasar suas análises.
-
-🎯 Sua missão é:
-Analisar os dados da campanha que fornecerei.
-Diagnosticar os erros e gargalos mais críticos com base nos dados e na sua base de conhecimento.
-Propor um plano de otimização com foco em alavancagem máxima.
-Reestruturar campanhas, conjuntos e anúncios se necessário.
-Analisar padrões históricos de campanha e otimizar com base em CPA, CPC e CTR.
-
-Você sempre entrega a sua análise na seguinte estrutura:
-1.  **ANÁLISE GERAL:** Um diagnóstico honesto da situação atual.
-2.  **CLASSIFICAÇÃO DE CAMPANHAS:** Classifique cada campanha/criativo como ✅ Verde (Escalar), 🟡 Amarelo (Testar/Otimizar) ou ❌ Vermelho (Descartar), explicando o porquê com base nos dados.
-3.  **PLANO DE AÇÃO DETALHADO:** Um passo a passo claro do que eu devo executar nas próximas 24h. Inclua sugestões de estrutura (ex: 1-2-1), público, criativos e orçamento.
-4.  **DIRETRIZ FINAL:** Uma recomendação final e uma pergunta estratégica para me forçar a pensar no próximo nível, como um amigo e parceiro de negócios.
-
-Agora, aguarde os dados da campanha do usuário para analisá-los.
-`;
-
-const AnalisadorIA = () => {
+export default function AnalisadorIA() {
+  const { user } = useAuth();
+  
+  // Estados da UI
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [error, setError] = useState('');
+  
+  // Estados dos Dados
   const [campaignData, setCampaignData] = useState('');
   const [analysisResult, setAnalysisResult] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [analysisTitle, setAnalysisTitle] = useState('');
 
-  // Lê a chave de API da Google a partir das variáveis de ambiente
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  // Estados do Histórico
+  const [savedAnalyses, setSavedAnalyses] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+  // Carregar histórico de análises do usuário
+  useEffect(() => {
+    if (!user) {
+      setIsHistoryLoading(false);
+      return;
+    }
+    const fetchHistory = async () => {
+      setIsHistoryLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('ia_analyses')
+          .select('id, title, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setSavedAnalyses(data || []);
+      } catch (err) {
+        console.error("Erro ao buscar histórico:", err);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [user]);
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!campaignData.trim()) {
-        setError('Por favor, insira os dados da campanha para análise.');
-        return;
+      setError('Por favor, insira os dados da campanha para análise.');
+      return;
     }
-    if (!apiKey) {
-        setError('A chave de API do Gemini não foi encontrada. Verifique o seu arquivo .env.');
-        return;
-    }
-
+    
     setIsLoading(true);
     setError('');
     setAnalysisResult('');
-
-    // Estrutura a conversa com a IA em turnos para melhor contexto
-    const chatHistory = [
-        { role: 'user', parts: [{ text: masterPrompt }] },
-        { role: 'model', parts: [{ text: 'Entendido. Estou pronto para atuar como o Gestor de Tráfego Sênior. Por favor, forneça os dados da campanha para que eu possa começar a análise.' }] },
-        { role: 'user', parts: [{ text: `Use o seguinte documento como sua base de conhecimento principal para a análise: \n\n${knowledgeBase}` }] },
-        { role: 'model', parts: [{ text: 'Base de conhecimento integrada. Agora estou ainda mais preparado. Pode enviar os dados da campanha.' }] },
-        { role: 'user', parts: [{ text: `Excelente. Aqui estão os dados para análise:\n\n${campaignData}` }] }
-    ];
+    setAnalysisTitle(`Análise de ${new Date().toLocaleDateString('pt-BR')}`);
 
     try {
-        const payload = {
-            contents: chatHistory,
-            // Adicionamos configurações de segurança para evitar bloqueios
-            safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-            ],
-        };
+      // CHAMA A EDGE FUNCTION SEGURA!
+      const { data, error: funcError } = await supabase.functions.invoke('gestor-trafego-ia', {
+        body: { campaignData },
+      });
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            console.error('API Error Response:', result);
-            throw new Error(result.error?.message || 'A API retornou um erro.');
-        }
-
-        let aiResponse = 'Desculpe, não consegui processar a resposta.';
-        if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-            aiResponse = result.candidates[0].content.parts[0].text;
-        } else {
-             // Se não houver texto, pode ser que o conteúdo foi bloqueado
-            aiResponse = `A resposta foi bloqueada. Motivo: ${result.candidates[0]?.finishReason || 'Não especificado'}. Tente reformular os dados da campanha.`;
-        }
-
-        setAnalysisResult(aiResponse);
+      if (funcError) throw funcError;
+      if (data.error) throw new Error(data.error);
+      
+      setAnalysisResult(data.analysis);
 
     } catch (err) {
-        console.error("Erro ao buscar análise da IA:", err);
-        setError(`Ocorreu um erro ao conectar com o agente: ${err.message}`);
+      console.error("Erro ao chamar a função da IA:", err);
+      setError(`Ocorreu um erro ao conectar com o agente: ${err.message}`);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
+  };
+  
+  const handleSaveAnalysis = async () => {
+    if (!user || !campaignData || !analysisResult || !analysisTitle) {
+        setError("Título, dados da campanha e resultado da análise são necessários para salvar.");
+        return;
+    }
+    setIsSaving(true);
+    setSaveStatus('idle');
+    try {
+      const { data, error } = await supabase
+        .from('ia_analyses')
+        .insert({
+          user_id: user.id,
+          title: analysisTitle,
+          campaign_data: campaignData,
+          analysis_result: analysisResult
+        })
+        .select()
+        .single(); // Espera um único registro de volta
+
+      if (error) throw error;
+      setSaveStatus('success');
+      setSavedAnalyses([data, ...savedAnalyses]); // Adiciona a nova análise no topo da lista
+    } catch (err) {
+      setSaveStatus('error');
+      setError("Erro ao salvar a análise.");
+      console.error("Erro ao salvar análise:", err);
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const loadAnalysis = async (id) => {
+    const { data } = await supabase.from('ia_analyses').select().eq('id', id).single();
+    if (data) {
+        setCampaignData(data.campaign_data);
+        setAnalysisResult(data.analysis_result);
+        setAnalysisTitle(data.title);
+    }
+  };
+
+  const deleteAnalysis = async (id) => {
+    await supabase.from('ia_analyses').delete().eq('id', id);
+    setSavedAnalyses(savedAnalyses.filter(a => a.id !== id));
   };
 
   return (
     <div className="flex flex-col h-full bg-[#0f0f0f] text-white p-4">
-      <PageHeader
-        title="Gestor de Tráfego Sênior"
-        description="Cole os dados de suas campanhas e receba uma análise profunda e um plano de ação tático do nosso especialista em tráfego, treinado com a documentação oficial da Meta."
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
-        {/* Coluna de Entrada de Dados */}
-        <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6 flex flex-col">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2"><LineChart/> Dados da Campanha</h2>
-            <p className="text-sm text-zinc-400 mb-4">Copie as colunas da sua planilha ou do Gerenciador de Anúncios e cole no campo abaixo. Inclua nomes, investimento, CPA, ROAS, CTR, etc.</p>
-            <form onSubmit={handleAnalyze} className="flex flex-col flex-grow">
-                <textarea
-                    value={campaignData}
-                    onChange={(e) => setCampaignData(e.target.value)}
-                    placeholder="Exemplo:&#10;Campanha, Investimento, Vendas, CPA&#10;Campanha Fria 01, R$50, 2, R$25&#10;Remarketing 02, R$30, 3, R$10"
-                    className="input w-full flex-grow text-sm resize-none"
-                    rows={15}
-                    disabled={isLoading}
-                />
-                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="btn-legiao w-full mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                    {isLoading ? (
-                        <>
-                            <div className="w-5 h-5 border-2 border-zinc-400 border-t-white rounded-full animate-spin"></div>
-                            Analisando...
-                        </>
-                    ) : (
-                       <> <Zap className="w-5 h-5" /> Analisar com IA </>
-                    )}
-                </button>
-            </form>
+      <PageHeader title="Gestor de Tráfego Sênior" description="Cole os dados de suas campanhas e receba uma análise profunda e um plano de ação tático do nosso especialista em tráfego." />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
+        {/* Coluna de Histórico (Esquerda) */}
+        <div className="lg:col-span-1 bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2"><History/> Histórico de Análises</h2>
+            {isHistoryLoading ? <p>Carregando histórico...</p> : savedAnalyses.length > 0 ? (
+                <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                    {savedAnalyses.map(item => (
+                        <li key={item.id} className="group bg-zinc-800 p-3 rounded-lg flex justify-between items-center transition hover:bg-zinc-700">
+                            <button onClick={() => loadAnalysis(item.id)} className="text-left flex-1">
+                                <p className="font-semibold text-white text-sm truncate">{item.title}</p>
+                                <p className="text-xs text-zinc-400">{new Date(item.created_at).toLocaleString('pt-BR')}</p>
+                            </button>
+                            <button onClick={() => deleteAnalysis(item.id)} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition ml-2">
+                                <Trash2 size={16}/>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            ) : <p className="text-zinc-400 text-sm">Nenhuma análise salva.</p>}
         </div>
 
-        {/* Coluna de Resultados da Análise */}
-        <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2"><Bot /> Análise e Plano de Ação</h2>
-            <div className="prose prose-invert prose-sm max-w-none bg-zinc-800 p-4 rounded-lg h-[500px] overflow-y-auto text-zinc-300">
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <p>Aguardando o especialista analisar os dados...</p>
-                    </div>
-                ) : analysisResult ? (
-                    <pre className="whitespace-pre-wrap font-sans">{analysisResult}</pre>
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-zinc-500">O resultado da análise aparecerá aqui.</p>
-                    </div>
-                )}
+        {/* Coluna Principal (Centro e Direita) */}
+        <div className="lg:col-span-2 grid grid-cols-1 gap-8">
+            <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6 flex flex-col">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2"><LineChart/> Dados da Campanha</h2>
+              <form onSubmit={handleAnalyze} className="flex flex-col flex-grow">
+                  <textarea value={campaignData} onChange={(e) => setCampaignData(e.target.value)} placeholder="Ex:&#10;Campanha, Investimento, Vendas, CPA&#10;Campanha Fria 01, R$50, 2, R$25" className="input w-full flex-grow text-sm resize-none" rows={10} disabled={isLoading} />
+                  {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+                  <button type="submit" disabled={isLoading} className="btn-legiao w-full mt-4 flex items-center justify-center gap-2 disabled:opacity-50">
+                      {isLoading ? (<><LoaderCircle className="animate-spin"/> Analisando...</>) : (<><Zap className="w-5 h-5" /> Analisar com IA</>)}
+                  </button>
+              </form>
+            </div>
+
+            <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6">
+                <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-xl font-semibold text-white flex items-center gap-2"><Bot /> Análise e Plano de Ação</h2>
+                    {analysisResult && user && (
+                        <button onClick={handleSaveAnalysis} disabled={isSaving || saveStatus === 'success'} className={`py-2 px-4 rounded-lg font-semibold text-white transition flex items-center justify-center gap-2 text-sm
+                            ${isSaving ? 'bg-zinc-500' : ''}
+                            ${saveStatus === 'success' ? 'bg-green-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                           {isSaving ? (<LoaderCircle className="animate-spin"/>) : saveStatus === 'success' ? (<Check />) : (<Save />)}
+                           {saveStatus === 'success' ? ' Salvo' : ' Salvar'}
+                        </button>
+                    )}
+                </div>
+                {analysisResult && <input type="text" value={analysisTitle} onChange={e => setAnalysisTitle(e.target.value)} className="input w-full mb-4" placeholder="Dê um título para esta análise"/>}
+
+                <div className="prose prose-invert prose-sm max-w-none bg-zinc-800 p-4 rounded-lg h-[400px] overflow-y-auto text-zinc-300">
+                    {isLoading ? <p className="text-center pt-4">Aguardando o especialista analisar os dados...</p> 
+                    : analysisResult ? <pre className="whitespace-pre-wrap font-sans">{analysisResult}</pre> 
+                    : <p className="text-zinc-500 text-center pt-4">O resultado da análise aparecerá aqui.</p>}
+                </div>
             </div>
         </div>
       </div>
     </div>
   );
 };
-
-export default AnalisadorIA;

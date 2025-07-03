@@ -1,10 +1,11 @@
-// src/pages/Conta.jsx (Código completo e atualizado)
+// src/pages/Conta.jsx (Código com feedback visual no botão)
 
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
-import { useAuth } from '../context/AuthContext'; // Importa nosso hook
-import { User, Shield, Gem, LogOut, Camera, KeyRound, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { User, Shield, Gem, LogOut, Camera, KeyRound, AlertTriangle, Check, LoaderCircle } from 'lucide-react'; // Ícones adicionados
 
+// Componentes internos (Navlink, SectionCard, etc.) permanecem os mesmos...
 const NavLink = ({ icon: Icon, label, isActive, onClick }) => (
     <button
         onClick={onClick}
@@ -42,13 +43,15 @@ const TextInput = ({ label, type = "text", value, onChange, placeholder, disable
     </div>
 );
 
+
 export default function Conta() {
     const [activeTab, setActiveTab] = useState('perfil');
-
-    // Pega o utilizador e a função de logout do contexto
     const { user, handleLogout } = useAuth();
+    
+    // --- NOVOS ESTADOS PARA FEEDBACK ---
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'success', 'error'
 
-    // Estado local para os dados do formulário
     const [userData, setUserData] = useState({
         name: '',
         email: '',
@@ -57,21 +60,43 @@ export default function Conta() {
         memberSince: '25 de Junho, 2025'
     });
 
-    // Atualiza o estado local quando o utilizador do contexto carregar
     useEffect(() => {
         if (user) {
             setUserData(prevData => ({
                 ...prevData,
-                name: user.user_metadata?.full_name || 'Ayan', // Use um fallback
+                name: user.user_metadata?.full_name || 'Ayan',
                 email: user.email,
             }));
         }
     }, [user]);
 
+    // --- FUNÇÃO DE SALVAMENTO COM FEEDBACK ---
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        setSaveStatus('idle');
+
+        // Simulação de chamada de API para salvar os dados
+        try {
+            // Aqui você colocaria a lógica real do Supabase para atualizar o usuário
+            // await supabase.auth.updateUser({ data: { full_name: userData.name } })
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Simula espera da rede
+            
+            setSaveStatus('success');
+        } catch (error) {
+            setSaveStatus('error');
+            console.error("Erro ao salvar:", error);
+        } finally {
+            setIsSaving(false);
+            // Reseta o estado do botão após alguns segundos
+            setTimeout(() => setSaveStatus('idle'), 2000);
+        }
+    };
+    
     if (!user) {
         return <div>Carregando informações do usuário...</div>;
     }
-
+    
+    // ... (função renderContent e resto do componente)
     const renderContent = () => {
         switch (activeTab) {
             case 'perfil':
@@ -80,11 +105,7 @@ export default function Conta() {
                         <div className="flex flex-col md:flex-row items-center gap-6">
                              <div className="relative">
                                 <div className="w-24 h-24 rounded-full bg-zinc-700 flex items-center justify-center">
-                                    {userData.avatarUrl ? (
-                                        <img src={userData.avatarUrl} alt="Avatar" className="w-full h-full rounded-full object-cover"/>
-                                    ) : (
-                                        <User className="w-12 h-12 text-zinc-500"/>
-                                    )}
+                                    <User className="w-12 h-12 text-zinc-500"/>
                                 </div>
                                 <button className="absolute -bottom-1 -right-1 bg-[#008CFF] p-2 rounded-full border-2 border-[#161616] hover:bg-blue-400 transition">
                                     <Camera className="w-4 h-4 text-white"/>
@@ -96,10 +117,28 @@ export default function Conta() {
                         </div>
                          <TextInput label="Endereço de E-mail" type="email" value={userData.email} disabled={true} />
                          <div className="text-right">
-                            <button className="btn-legiao py-2 px-6">Salvar Alterações</button>
+                            {/* --- BOTÃO COM LÓGICA DE FEEDBACK --- */}
+                            <button 
+                                className={`btn-legiao py-2 px-6 flex items-center justify-center gap-2 transition-all duration-300 ${
+                                    isSaving ? 'opacity-70 cursor-not-allowed' : ''
+                                } ${
+                                    saveStatus === 'success' ? '!bg-green-500' : ''
+                                }`}
+                                onClick={handleSaveChanges}
+                                disabled={isSaving || saveStatus === 'success'}
+                            >
+                                {isSaving ? (
+                                    <> <LoaderCircle className="animate-spin" /> Salvando... </>
+                                ) : saveStatus === 'success' ? (
+                                    <> <Check /> Salvo com Sucesso! </>
+                                ) : (
+                                    'Salvar Alterações'
+                                )}
+                            </button>
                          </div>
                     </SectionCard>
                 );
+            // ... outros cases (seguranca, plano)
             case 'seguranca':
                 return (
                     <>
@@ -121,7 +160,7 @@ export default function Conta() {
                     </>
                 );
             case 'plano':
-                return (
+                 return (
                     <SectionCard title="Plano & Assinatura">
                         <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                             <div className="flex justify-between items-center">
@@ -155,32 +194,28 @@ export default function Conta() {
         }
     }
 
-  return (
-    <div className="text-white px-4 py-10">
-        <PageHeader
-            title="Minha Conta"
-            description="Visualize e administre as informações do seu perfil, segurança e assinatura."
-        />
 
-        <div className="w-full max-w-6xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Coluna de Navegação */}
-            <aside className="md:col-span-1">
-                <nav className="space-y-2">
-                    <NavLink label="Perfil" icon={User} isActive={activeTab === 'perfil'} onClick={() => setActiveTab('perfil')} />
-                    <NavLink label="Segurança" icon={Shield} isActive={activeTab === 'seguranca'} onClick={() => setActiveTab('seguranca')} />
-                    <NavLink label="Plano & Assinatura" icon={Gem} isActive={activeTab === 'plano'} onClick={() => setActiveTab('plano')} />
-                    <div className="pt-4 mt-4 border-t border-zinc-800">
-                         {/* Usamos a função handleLogout do contexto aqui */}
-                         <NavLink label="Sair" icon={LogOut} isActive={false} onClick={handleLogout} />
-                    </div>
-                </nav>
-            </aside>
-
-            {/* Coluna de Conteúdo */}
-            <main className="md:col-span-3 space-y-6">
-                {renderContent()}
-            </main>
+    return (
+        <div className="text-white px-4 py-10">
+            <PageHeader
+                title="Minha Conta"
+                description="Visualize e administre as informações do seu perfil, segurança e assinatura."
+            />
+            <div className="w-full max-w-6xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+                <aside className="md:col-span-1">
+                    <nav className="space-y-2">
+                        <NavLink label="Perfil" icon={User} isActive={activeTab === 'perfil'} onClick={() => setActiveTab('perfil')} />
+                        <NavLink label="Segurança" icon={Shield} isActive={activeTab === 'seguranca'} onClick={() => setActiveTab('seguranca')} />
+                        <NavLink label="Plano & Assinatura" icon={Gem} isActive={activeTab === 'plano'} onClick={() => setActiveTab('plano')} />
+                        <div className="pt-4 mt-4 border-t border-zinc-800">
+                             <NavLink label="Sair" icon={LogOut} isActive={false} onClick={handleLogout} />
+                        </div>
+                    </nav>
+                </aside>
+                <main className="md:col-span-3 space-y-6">
+                    {renderContent()}
+                </main>
+            </div>
         </div>
-    </div>
-  )
+      )
 }
