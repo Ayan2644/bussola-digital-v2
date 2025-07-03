@@ -1,11 +1,12 @@
-// src/pages/Conta.jsx (Código com feedback visual no botão)
+// Local de Instalação: src/pages/Conta.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
-import { User, Shield, Gem, LogOut, Camera, KeyRound, AlertTriangle, Check, LoaderCircle } from 'lucide-react'; // Ícones adicionados
+import InfoCard from '../components/ui/InfoCard'; // <- IMPORTANDO O NOVO COMPONENTE
+import { User, Shield, Gem, LogOut, Camera, KeyRound, AlertTriangle, Check, LoaderCircle } from 'lucide-react';
 
-// Componentes internos (Navlink, SectionCard, etc.) permanecem os mesmos...
 const NavLink = ({ icon: Icon, label, isActive, onClick }) => (
     <button
         onClick={onClick}
@@ -18,15 +19,6 @@ const NavLink = ({ icon: Icon, label, isActive, onClick }) => (
         <Icon className="w-5 h-5 mr-3" />
         {label}
     </button>
-);
-
-const SectionCard = ({ title, children }) => (
-    <div className="bg-[#161616] p-6 rounded-2xl border border-zinc-800">
-        <h3 className="text-xl font-semibold text-white mb-4 pb-4 border-b border-zinc-700">{title}</h3>
-        <div className="space-y-6">
-            {children}
-        </div>
-    </div>
 );
 
 const TextInput = ({ label, type = "text", value, onChange, placeholder, disabled = false }) => (
@@ -43,21 +35,15 @@ const TextInput = ({ label, type = "text", value, onChange, placeholder, disable
     </div>
 );
 
-
 export default function Conta() {
     const [activeTab, setActiveTab] = useState('perfil');
     const { user, handleLogout } = useAuth();
-    
-    // --- NOVOS ESTADOS PARA FEEDBACK ---
+
     const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'success', 'error'
+    const [saveStatus, setSaveStatus] = useState('idle');
 
     const [userData, setUserData] = useState({
-        name: '',
-        email: '',
-        avatarUrl: null,
-        plan: 'Bússola PRO',
-        memberSince: '25 de Junho, 2025'
+        name: '', email: '', avatarUrl: null, plan: 'Bússola PRO', memberSince: '25 de Junho, 2025'
     });
 
     useEffect(() => {
@@ -70,38 +56,30 @@ export default function Conta() {
         }
     }, [user]);
 
-    // --- FUNÇÃO DE SALVAMENTO COM FEEDBACK ---
     const handleSaveChanges = async () => {
         setIsSaving(true);
         setSaveStatus('idle');
-
-        // Simulação de chamada de API para salvar os dados
         try {
-            // Aqui você colocaria a lógica real do Supabase para atualizar o usuário
-            // await supabase.auth.updateUser({ data: { full_name: userData.name } })
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Simula espera da rede
-            
+            await new Promise(resolve => setTimeout(resolve, 1500));
             setSaveStatus('success');
         } catch (error) {
             setSaveStatus('error');
             console.error("Erro ao salvar:", error);
         } finally {
             setIsSaving(false);
-            // Reseta o estado do botão após alguns segundos
             setTimeout(() => setSaveStatus('idle'), 2000);
         }
     };
-    
+
     if (!user) {
         return <div>Carregando informações do usuário...</div>;
     }
-    
-    // ... (função renderContent e resto do componente)
+
     const renderContent = () => {
         switch (activeTab) {
             case 'perfil':
                 return (
-                    <SectionCard title="Informações do Perfil">
+                    <InfoCard title="Informações do Perfil">
                         <div className="flex flex-col md:flex-row items-center gap-6">
                              <div className="relative">
                                 <div className="w-24 h-24 rounded-full bg-zinc-700 flex items-center justify-center">
@@ -117,7 +95,6 @@ export default function Conta() {
                         </div>
                          <TextInput label="Endereço de E-mail" type="email" value={userData.email} disabled={true} />
                          <div className="text-right">
-                            {/* --- BOTÃO COM LÓGICA DE FEEDBACK --- */}
                             <button 
                                 className={`btn-legiao py-2 px-6 flex items-center justify-center gap-2 transition-all duration-300 ${
                                     isSaving ? 'opacity-70 cursor-not-allowed' : ''
@@ -136,20 +113,19 @@ export default function Conta() {
                                 )}
                             </button>
                          </div>
-                    </SectionCard>
+                    </InfoCard>
                 );
-            // ... outros cases (seguranca, plano)
             case 'seguranca':
                 return (
                     <>
-                        <SectionCard title="Alterar Senha">
+                        <InfoCard title="Alterar Senha">
                             <TextInput label="Senha Atual" type="password" placeholder="••••••••" />
                             <TextInput label="Nova Senha" type="password" placeholder="••••••••" />
                             <TextInput label="Confirmar Nova Senha" type="password" placeholder="••••••••" />
                             <div className="text-right">
                                 <button className="btn-legiao py-2 px-6">Atualizar Senha</button>
                             </div>
-                        </SectionCard>
+                        </InfoCard>
                         <div className="bg-red-900/20 border border-red-500/50 p-6 rounded-2xl">
                              <h3 className="text-xl font-semibold text-red-400 flex items-center gap-2"><AlertTriangle/> Zona de Perigo</h3>
                              <p className="text-sm text-zinc-400 mt-2 mb-4">Ações nesta área são permanentes e não podem ser desfeitas. Tenha a certeza absoluta antes de continuar.</p>
@@ -161,7 +137,7 @@ export default function Conta() {
                 );
             case 'plano':
                  return (
-                    <SectionCard title="Plano & Assinatura">
+                    <InfoCard title="Plano & Assinatura">
                         <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                             <div className="flex justify-between items-center">
                                 <div>
@@ -187,13 +163,12 @@ export default function Conta() {
                                 Gerenciar Assinatura
                              </button>
                         </div>
-                    </SectionCard>
+                    </InfoCard>
                 );
             default:
                 return null;
         }
     }
-
 
     return (
         <div className="text-white px-4 py-10">

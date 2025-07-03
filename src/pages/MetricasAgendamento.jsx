@@ -1,9 +1,10 @@
-// src/pages/MetricasAgendamento.jsx (Com persistência de dados e feedback)
+// Local de Instalação: src/pages/MetricasAgendamento.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../supabase';
+import { useToolData } from '../hooks/useToolData'; // <- Importando o hook
 import { Save, LoaderCircle, Check } from 'lucide-react';
 
 // --- COMPONENTES DE UI ---
@@ -17,7 +18,7 @@ function SliderInput({ label, value, onChange, min, max, step, unit }) {
       </div>
     );
 }
-  
+
 function ResultCard({ title, value, subtext }) {
     return (
       <div className="bg-[#151515] p-4 rounded-xl border border-zinc-800 hover:shadow-lg transition">
@@ -30,82 +31,31 @@ function ResultCard({ title, value, subtext }) {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function MetricasAgendamento() {
-    // --- ESTADOS DE CONTROLE ---
-    const { user } = useAuth();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('idle');
+    const { user } = useAuth(); // Apenas para verificar se o usuário está logado
 
-    // --- ESTADOS DA FERRAMENTA ---
-    const [investimento, setInvestimento] = useState(1000);
-    const [precoLead, setPrecoLead] = useState(5);
-    const [taxaAgendamento, setTaxaAgendamento] = useState(10);
-    const [taxaComparecimento, setTaxaComparecimento] = useState(50);
-    const [taxaConversao, setTaxaConversao] = useState(10);
-    const [ticketMedio, setTicketMedio] = useState(1000);
-
-    // --- CARREGAR DADOS ---
-    useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) {
-                setIsLoading(false);
-                return;
-            }
-            try {
-                const { data, error } = await supabase
-                    .from('user_tool_data')
-                    .select('data')
-                    .eq('user_id', user.id)
-                    .eq('tool_name', 'metricas_agendamento')
-                    .single();
-
-                if (error && error.code !== 'PGRST116') throw error;
-                if (data) {
-                    const saved = data.data;
-                    setInvestimento(saved.investimento);
-                    setPrecoLead(saved.precoLead);
-                    setTaxaAgendamento(saved.taxaAgendamento);
-                    setTaxaComparecimento(saved.taxaComparecimento);
-                    setTaxaConversao(saved.taxaConversao);
-                    setTicketMedio(saved.ticketMedio);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar dados de agendamento:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchUserData();
-    }, [user]);
-
-    // --- SALVAR DADOS ---
-    const handleSaveData = async () => {
-        if (!user) return;
-        setIsSaving(true);
-        setSaveStatus('idle');
-        const toolData = { investimento, precoLead, taxaAgendamento, taxaComparecimento, taxaConversao, ticketMedio };
-        
-        try {
-            const { error } = await supabase.from('user_tool_data').upsert({
-                user_id: user.id,
-                tool_name: 'metricas_agendamento',
-                data: toolData,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id, tool_name' });
-
-            if (error) throw error;
-            setSaveStatus('success');
-        } catch (error) {
-            setSaveStatus('error');
-            console.error("Erro ao salvar dados:", error);
-        } finally {
-            setIsSaving(false);
-            setTimeout(() => setSaveStatus('idle'), 2000);
-        }
+    // --- ESTADO INICIAL DA FERRAMENTA ---
+    const initialState = {
+        investimento: 1000,
+        precoLead: 5,
+        taxaAgendamento: 10,
+        taxaComparecimento: 50,
+        taxaConversao: 10,
+        ticketMedio: 1000,
     };
-    
-    // ... (Lógica de cálculo dos resultados permanece a mesma)
+
+    // --- CENTRALIZANDO TODA A LÓGICA DE DADOS COM O HOOK ---
+    const { 
+        data, 
+        setData, 
+        isLoading, 
+        isSaving, 
+        saveStatus, 
+        saveData 
+    } = useToolData('metricas_agendamento', initialState);
+
+    // --- Lógica de cálculo dos resultados ---
     const resultados = useMemo(() => {
+        const { investimento, precoLead, taxaAgendamento, taxaComparecimento, taxaConversao, ticketMedio } = data;
         const numLeads = precoLead > 0 ? investimento / precoLead : 0;
         const numAgendamentos = numLeads * (taxaAgendamento / 100);
         const numCallsRealizadas = numAgendamentos * (taxaComparecimento / 100);
@@ -117,26 +67,31 @@ export default function MetricasAgendamento() {
         const numSDRs = numLeads > 0 ? Math.ceil(numLeads / 200) : 0;
         const numClosers = numCallsRealizadas > 0 ? Math.ceil(numCallsRealizadas / 50) : 0;
         return { faturamento, numVendas, custoPorCall, cac, roas, numSDRs, numClosers };
-    }, [investimento, precoLead, taxaAgendamento, taxaComparecimento, taxaConversao, ticketMedio]);
+    }, [data]);
 
-    if (isLoading) return <div className="text-center p-10">Carregando...</div>;
+    if (isLoading) return <div className="text-center p-10">Carregando dados...</div>;
+
+    // Função genérica para atualizar os campos do estado
+    const handleChange = (field, value) => {
+        setData(prevData => ({ ...prevData, [field]: value }));
+    };
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10 flex flex-col items-center">
         <PageHeader title="Métricas de Agendamento" description="Descubra o potencial de faturamento mensal e a estrutura de equipa necessária aplicando o seu modelo de agendamento."/>
         <div className="w-full max-w-6xl mt-2 grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
-                <SliderInput label="Investimento por Mês" value={investimento} onChange={setInvestimento} min={100} max={100000} step={100} unit="R$" />
-                <SliderInput label="Preço por Lead" value={precoLead} onChange={setPrecoLead} min={1} max={50} step={1} unit="R$" />
-                <SliderInput label="Taxa de Agendamento" value={taxaAgendamento} onChange={setTaxaAgendamento} min={1} max={100} step={1} unit="%" />
-                <SliderInput label="Taxa de Comparecimento" value={taxaComparecimento} onChange={setTaxaComparecimento} min={1} max={100} step={1} unit="%" />
-                <SliderInput label="Taxa de Conversão (pós-call)" value={taxaConversao} onChange={setTaxaConversao} min={1} max={100} step={1} unit="%" />
-                <SliderInput label="Ticket Médio" value={ticketMedio} onChange={setTicketMedio} min={50} max={10000} step={50} unit="R$" />
+                <SliderInput label="Investimento por Mês" value={data.investimento} onChange={(v) => handleChange('investimento', v)} min={100} max={100000} step={100} unit="R$" />
+                <SliderInput label="Preço por Lead" value={data.precoLead} onChange={(v) => handleChange('precoLead', v)} min={1} max={50} step={1} unit="R$" />
+                <SliderInput label="Taxa de Agendamento" value={data.taxaAgendamento} onChange={(v) => handleChange('taxaAgendamento', v)} min={1} max={100} step={1} unit="%" />
+                <SliderInput label="Taxa de Comparecimento" value={data.taxaComparecimento} onChange={(v) => handleChange('taxaComparecimento', v)} min={1} max={100} step={1} unit="%" />
+                <SliderInput label="Taxa de Conversão (pós-call)" value={data.taxaConversao} onChange={(v) => handleChange('taxaConversao', v)} min={1} max={100} step={1} unit="%" />
+                <SliderInput label="Ticket Médio" value={data.ticketMedio} onChange={(v) => handleChange('ticketMedio', v)} min={50} max={10000} step={50} unit="R$" />
 
                 {/* --- BOTÃO DE SALVAR --- */}
                 {user && (
                     <button
-                        onClick={handleSaveData}
+                        onClick={() => saveData(data)}
                         disabled={isSaving || saveStatus === 'success'}
                         className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2 mt-2
                             ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
@@ -148,7 +103,7 @@ export default function MetricasAgendamento() {
                     </button>
                 )}
             </div>
-            
+
             <div className="space-y-4">
                  <ResultCard title="Faturamento (Mensal)" value={resultados.faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
                  <ResultCard title="Número de Vendas" value={Math.floor(resultados.numVendas)} />

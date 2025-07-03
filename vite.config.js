@@ -1,4 +1,5 @@
-// vite.config.js (Código completo e CORRIGIDO)
+// Local de Instalação: vite.config.js
+// CÓDIGO COMPLETO E CORRIGIDO
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'

@@ -1,8 +1,8 @@
-// Local: supabase/functions/gestor-trafego-ia/index.ts
+// Local de Instalação: supabase/functions/gestor-trafego-ia/index.ts
+// CÓDIGO COMPLETO E MAIS SEGURO
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
-// Os prompts e a base de conhecimento agora vivem seguros no backend.
 const knowledgeBase = `
 Sobre o orçamento de campanha Advantage: O Orçamento de Campanha Advantage é mais adequado para campanhas com pelo menos dois conjuntos de anúncios. Ele gerencia automaticamente o orçamento da campanha em conjuntos de anúncios a fim de oferecer os melhores resultados gerais, distribuindo continuamente em tempo real para os conjuntos de anúncios com as melhores oportunidades.
 Sobre orçamentos diários: O valor médio que você deseja gastar por dia. A Meta pode gastar até 75% acima do seu orçamento diário em alguns dias, mas não gastará mais do que sete vezes seu orçamento diário em uma semana (domingo a sábado).
@@ -46,21 +46,24 @@ serve(async (req) => {
   }
 
   try {
-    // Pega os dados enviados pelo frontend
     const { campaignData } = await req.json()
-    if (!campaignData) {
-      throw new Error('Dados da campanha não foram fornecidos.')
-    }
 
-    // Pega a chave da API do Gemini, que está armazenada de forma segura
+    // --- BLOCO DE VALIDAÇÃO DE SEGURANÇA ADICIONADO ---
+    if (!campaignData || typeof campaignData !== 'string' || campaignData.length > 10000) {
+      return new Response(JSON.stringify({ error: 'Dados da campanha inválidos ou excedem o limite de 10.000 caracteres.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+    // --- FIM DO BLOCO DE VALIDAÇÃO ---
+
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
     if (!geminiApiKey) {
       throw new Error('Chave da API do Gemini não configurada nos secrets do projeto.')
     }
-    
+
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`
 
-    // Monta o payload para a API do Gemini
     const chatHistory = [
         { role: 'user', parts: [{ text: masterPrompt }] },
         { role: 'model', parts: [{ text: 'Entendido. Estou pronto para atuar.' }] },
@@ -79,7 +82,6 @@ serve(async (req) => {
         ],
     };
 
-    // Faz a chamada para a API do Gemini
     const geminiResponse = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,7 +96,6 @@ serve(async (req) => {
     const result = await geminiResponse.json();
     const aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || "Não foi possível obter uma análise.";
 
-    // Retorna a resposta da IA de volta para o seu app
     return new Response(
       JSON.stringify({ analysis: aiResponse }),
       { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },

@@ -1,21 +1,13 @@
-// src/pages/Planejamento.jsx (Código completo com persistência de dados)
+// Local de Instalação: src/pages/Planejamento.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
-import { useAuth } from '../context/AuthContext'; // Importar o hook de autenticação
-import { supabase } from '../supabase'; // Importar o cliente Supabase
-import { Save, LoaderCircle, Check } from 'lucide-react'; // Ícones para o botão
+import { useToolData } from '../hooks/useToolData';
+import InfoCard from '../components/ui/InfoCard'; // <- IMPORTANDO O NOVO COMPONENTE
+import { Save, LoaderCircle, Check } from 'lucide-react';
 
-// --- COMPONENTES DE UI (InputCard, LabeledSlider, etc. permanecem os mesmos) ---
-function InputCard({ title, children }) {
-    return (
-      <div className="bg-[#161616] p-6 rounded-2xl border border-zinc-800 shadow-lg transition duration-300 space-y-4 flex flex-col">
-        <h3 className="text-lg font-semibold text-white">{title}</h3>
-        {children}
-      </div>
-    );
-}
-
+// --- COMPONENTES DE UI ---
 function LabeledSlider({ label, value, onChange, min, max, step, format, color = 'blue' }) {
     const accentColor = color === 'blue' ? 'accent-[#008CFF]' : 'accent-[#ED195C]';
     const textColor = color === 'blue' ? 'text-[#008CFF]' : 'text-[#ED195C]';
@@ -50,115 +42,49 @@ function ResultCard({ title, value, subtext, isMain = false }) {
     );
 }
 
-
 // --- COMPONENTE PRINCIPAL DA PÁGINA ---
 export default function PlanejamentoEstrategico() {
-    // --- AUTENTICAÇÃO E ESTADOS DE PERSISTÊNCIA ---
-    const { user } = useAuth();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('idle');
-
-    // --- ESTADOS DA FERRAMENTA ---
-    const [metaFaturamento, setMetaFaturamento] = useState(50000);
-    const [tipoReceita, setTipoReceita] = useState('produto');
-    const [valorReceita, setValorReceita] = useState(197);
-    const [metricaConversao, setMetricaConversao] = useState('leads');
-    const [eventosPorVenda, setEventosPorVenda] = useState(20);
-    const [custoPorEvento, setCustoPorEvento] = useState(8);
-    
-    // --- LÓGICA DE CARREGAMENTO DOS DADOS (FETCH) ---
-    useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) {
-                setIsLoading(false);
-                return;
-            };
-
-            try {
-                const { data, error } = await supabase
-                    .from('user_tool_data')
-                    .select('data')
-                    .eq('user_id', user.id)
-                    .eq('tool_name', 'planejamento')
-                    .single();
-
-                if (error && error.code !== 'PGRST116') throw error; // Ignora erro "nenhuma linha encontrada"
-
-                if (data) {
-                    setMetaFaturamento(data.data.metaFaturamento);
-                    setTipoReceita(data.data.tipoReceita);
-                    setValorReceita(data.data.valorReceita);
-                    setMetricaConversao(data.data.metricaConversao);
-                    setEventosPorVenda(data.data.eventosPorVenda);
-                    setCustoPorEvento(data.data.custoPorEvento);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar dados do planejamento:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchUserData();
-    }, [user]);
-
-    // --- LÓGICA DE SALVAMENTO DOS DADOS (SAVE) ---
-    const handleSaveData = async () => {
-        if (!user) return; // Não faz nada se o usuário não estiver logado
-
-        setIsSaving(true);
-        setSaveStatus('idle');
-
-        const toolData = {
-            metaFaturamento,
-            tipoReceita,
-            valorReceita,
-            metricaConversao,
-            eventosPorVenda,
-            custoPorEvento
-        };
-
-        try {
-            const { error } = await supabase
-                .from('user_tool_data')
-                .upsert({
-                    user_id: user.id,
-                    tool_name: 'planejamento',
-                    data: toolData,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id, tool_name' });
-            
-            if (error) throw error;
-
-            setSaveStatus('success');
-
-        } catch (error) {
-            setSaveStatus('error');
-            console.error("Erro ao salvar dados:", error);
-        } finally {
-            setIsSaving(false);
-            setTimeout(() => setSaveStatus('idle'), 2000);
-        }
+    const initialState = {
+        metaFaturamento: 50000,
+        tipoReceita: 'produto',
+        valorReceita: 197,
+        metricaConversao: 'leads',
+        eventosPorVenda: 20,
+        custoPorEvento: 8,
     };
 
-    // ... (opções, labels e cálculos permanecem os mesmos) ...
+    const { 
+        data, 
+        setData, 
+        isLoading, 
+        isSaving, 
+        saveStatus, 
+        saveData 
+    } = useToolData('planejamento', initialState);
+
+    const handleChange = (field, value) => {
+        setData(prevData => ({ ...prevData, [field]: value }));
+    };
+
     const opcoesReceita = [{ value: 'produto', label: 'Produto' }, { value: 'servico', label: 'Serviço' }, { value: 'comissao', label: 'Comissão' }];
     const opcoesMetrica = [{ value: 'leads', label: 'Leads' }, { value: 'cliques', label: 'Cliques' }, { value: 'checkouts', label: 'Checkouts' }, { value: 'conversas', label: 'Conversas' }];
+
     const custoLabel = useMemo(() => {
         const labels = { leads: 'Preço médio por Lead (CPL)', cliques: 'Custo médio por Clique (CPC)', checkouts: 'Custo por Iniciar Checkout', conversas: 'Custo por Conversa Iniciada' };
-        return labels[metricaConversao];
-    }, [metricaConversao]);
+        return labels[data.metricaConversao];
+    }, [data.metricaConversao]);
+
     const resultados = useMemo(() => {
-        const vendasNecessarias = valorReceita > 0 ? metaFaturamento / valorReceita : 0;
-        const eventosTotais = vendasNecessarias * eventosPorVenda;
-        const investimentoTotal = eventosTotais * custoPorEvento;
-        const lucroBruto = metaFaturamento - investimentoTotal;
-        const roas = investimentoTotal > 0 ? metaFaturamento / investimentoTotal : 0;
-        const taxaConversaoFinal = eventosPorVenda > 0 ? (1 / eventosPorVenda) * 100 : 0;
-        const nomeEvento = opcoesMetrica.find(o => o.value === metricaConversao)?.label || metricaConversao;
+        const vendasNecessarias = data.valorReceita > 0 ? data.metaFaturamento / data.valorReceita : 0;
+        const eventosTotais = vendasNecessarias * data.eventosPorVenda;
+        const investimentoTotal = eventosTotais * data.custoPorEvento;
+        const lucroBruto = data.metaFaturamento - investimentoTotal;
+        const roas = investimentoTotal > 0 ? data.metaFaturamento / investimentoTotal : 0;
+        const taxaConversaoFinal = data.eventosPorVenda > 0 ? (1 / data.eventosPorVenda) * 100 : 0;
+        const nomeEvento = opcoesMetrica.find(o => o.value === data.metricaConversao)?.label || data.metricaConversao;
         return { vendasNecessarias, eventosTotais, investimentoTotal, lucroBruto, roas, taxaConversaoFinal, nomeEvento };
-    }, [metaFaturamento, valorReceita, metricaConversao, eventosPorVenda, custoPorEvento]);
+    }, [data]);
+
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     if (isLoading) {
@@ -170,46 +96,37 @@ export default function PlanejamentoEstrategico() {
             <PageHeader title="Planejamento Estratégico" description="Simule cenários e descubra o investimento necessário para alcançar suas metas de faturamento com base no seu funil de conversão." />
             <div className="w-full max-w-6xl mt-2 grid grid-cols-1 lg:grid-cols-5 gap-8">
                 <div className="lg:col-span-2 space-y-6">
-                    {/* ... (Cards de Input) ... */}
-                     <InputCard title="Meta de Faturamento">
-                        <LabeledSlider label="Quanto quer faturar por mês?" value={metaFaturamento} onChange={setMetaFaturamento} min={1000} max={2000000} step={1000} format={formatCurrency}/>
-                    </InputCard>
-                     <InputCard title="Engrenagem de Conversão">
-                         <LabeledSlider label={`Preço do ${opcoesReceita.find(o => o.value === tipoReceita)?.label || ''}`} value={valorReceita} onChange={setValorReceita} min={10} max={10000} step={1} format={formatCurrency}/>
-                        <DropdownInput options={opcoesReceita} selected={tipoReceita} onChange={setTipoReceita}/>
-                    </InputCard>
-                     <InputCard title="Funil de Vendas">
-                        <label className="text-sm text-zinc-300">A cada quantos <span className="font-bold text-white">{opcoesMetrica.find(o => o.value === metricaConversao)?.label.toLowerCase() || ''}</span> sai uma venda?</label>
-                        <DropdownInput options={opcoesMetrica} selected={metricaConversao} onChange={setMetricaConversao}/>
-                        <LabeledSlider label="Número de Eventos" value={eventosPorVenda} onChange={setEventosPorVenda} min={1} max={500} step={1} format={(v) => v}/>
-                    </InputCard>
-                    <InputCard title="Custo de Aquisição">
-                        <LabeledSlider label={custoLabel} value={custoPorEvento} onChange={setCustoPorEvento} min={0.1} max={100} step={0.1} format={formatCurrency} color="red"/>
-                    </InputCard>
-                    
-                    {/* --- BOTÃO DE SALVAR --- */}
-                    {user && (
-                        <button
-                            onClick={handleSaveData}
-                            disabled={isSaving || saveStatus === 'success'}
-                            className={`w-full py-3 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2
-                                ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
-                                ${saveStatus === 'success' ? 'bg-green-600' : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:opacity-90'}
-                            `}
-                        >
-                            {isSaving ? (
-                                <><LoaderCircle className="animate-spin"/> Salvando Dados</>
-                            ) : saveStatus === 'success' ? (
-                                <><Check /> Salvo</>
-                            ) : (
-                                <><Save /> Salvar Dados</>
-                            )}
-                        </button>
-                    )}
+                     <InfoCard title="Meta de Faturamento">
+                        <LabeledSlider label="Quanto quer faturar por mês?" value={data.metaFaturamento} onChange={(v) => handleChange('metaFaturamento', v)} min={1000} max={2000000} step={1000} format={formatCurrency}/>
+                    </InfoCard>
+                     <InfoCard title="Engrenagem de Conversão">
+                         <LabeledSlider label={`Preço do ${opcoesReceita.find(o => o.value === data.tipoReceita)?.label || ''}`} value={data.valorReceita} onChange={(v) => handleChange('valorReceita', v)} min={10} max={10000} step={1} format={formatCurrency}/>
+                        <DropdownInput options={opcoesReceita} selected={data.tipoReceita} onChange={(v) => handleChange('tipoReceita', v)}/>
+                    </InfoCard>
+                     <InfoCard title="Funil de Vendas">
+                        <label className="text-sm text-zinc-300">A cada quantos <span className="font-bold text-white">{opcoesMetrica.find(o => o.value === data.metricaConversao)?.label.toLowerCase() || ''}</span> sai uma venda?</label>
+                        <DropdownInput options={opcoesMetrica} selected={data.metricaConversao} onChange={(v) => handleChange('metricaConversao', v)}/>
+                        <LabeledSlider label="Número de Eventos" value={data.eventosPorVenda} onChange={(v) => handleChange('eventosPorVenda', v)} min={1} max={500} step={1} format={(v) => v}/>
+                    </InfoCard>
+                    <InfoCard title="Custo de Aquisição">
+                        <LabeledSlider label={custoLabel} value={data.custoPorEvento} onChange={(v) => handleChange('custoPorEvento', v)} min={0.1} max={100} step={0.1} format={formatCurrency} color="red"/>
+                    </InfoCard>
+
+                    <button
+                        onClick={() => saveData(data)}
+                        disabled={isSaving || saveStatus === 'success'}
+                        className={`w-full py-3 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2
+                            ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
+                            ${saveStatus === 'success' ? 'bg-green-600' : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:opacity-90'}
+                        `}
+                    >
+                        {isSaving ? ( <><LoaderCircle className="animate-spin"/> Salvando Dados</>
+                        ) : saveStatus === 'success' ? ( <><Check /> Salvo</>
+                        ) : ( <><Save /> Salvar Dados</> )}
+                    </button>
                 </div>
 
                 <div className="lg:col-span-3 bg-zinc-900/80 p-6 md:p-8 rounded-3xl border border-zinc-700 flex flex-col gap-6">
-                    {/* ... (Cards de Resultado) ... */}
                     <ResultCard title="Lucro Bruto Estimado" value={formatCurrency(resultados.lucroBruto)} subtext="Faturamento - Investimento" isMain={true}/>
                     <div className="grid grid-cols-2 gap-6">
                         <ResultCard title="Vendas Necessárias" value={Math.ceil(resultados.vendasNecessarias)} />

@@ -1,9 +1,11 @@
-// src/main.jsx (Código completo, final e com todas as rotas)
+// Local de Instalação: src/main.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
+import { Toaster } from 'react-hot-toast'; // <- IMPORTANDO O TOASTER
 
 // Contexto e Rota Protegida
 import { AuthProvider } from './context/AuthContext';
@@ -32,6 +34,30 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Router>
       <AuthProvider>
+        {/* O Toaster é adicionado aqui para estar disponível em toda a aplicação */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            className: '',
+            style: {
+              background: '#18181b', // Cor de fundo (zinc-900)
+              color: '#e4e4e7',      // Cor do texto (zinc-200)
+              border: '1px solid #3f3f46' // Cor da borda (zinc-700)
+            },
+            success: {
+              iconTheme: {
+                primary: '#22c55e', // Cor do ícone (green-500)
+                secondary: '#18181b',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444', // Cor do ícone (red-500)
+                secondary: '#18181b',
+              },
+            }
+          }}
+        />
         <Routes>
           {/* Rotas de Autenticação com o Layout próprio */}
           <Route element={<AuthLayout />}>

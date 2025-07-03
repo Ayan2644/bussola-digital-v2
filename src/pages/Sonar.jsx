@@ -1,81 +1,36 @@
-// src/pages/Sonar.jsx (Com persistência de dados e feedback)
+// Local de Instalação: src/pages/Sonar.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import RadarSVG from '../components/RadarSVG';
 import Termometro from '../components/Termometro';
 import OptimizationMap from '../components/OptimizationMap';
 import PageHeader from '../components/ui/PageHeader';
-import { useAuth } from '../context/AuthContext'; // Importar
-import { supabase } from '../supabase'; // Importar
-import { Save, LoaderCircle, Check } from 'lucide-react'; // Importar
+import { useAuth } from '../context/AuthContext';
+import { useToolData } from '../hooks/useToolData'; // <- Importando o hook
+import { Save, LoaderCircle, Check } from 'lucide-react';
 
 export default function Sonar() {
-  // --- ESTADOS DE CONTROLE ---
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle');
 
-  // --- ESTADOS DOS INPUTS ---
-  const [formState, setFormState] = useState({
+  // --- ESTADO INICIAL DA FERRAMENTA ---
+  const initialState = {
       impressions: '', clicks: '', cpm: '', cpc: '',
       pageviews: '', checkouts: '', purchases: '', adSpend: '', avgOrder: ''
-  });
-  
-  // --- ESTADOS DE RESULTADO ---
+  };
+
+  // --- CENTRALIZANDO A LÓGICA DE DADOS ---
+  const {
+    data: formState, // Renomeando 'data' para 'formState'
+    setData: setFormState,
+    isLoading,
+    isSaving,
+    saveStatus,
+    saveData
+  } = useToolData('sonar', initialState);
+
   const [results, setResults] = useState(null);
   const [performance, setPerformance] = useState(0);
-
-  // --- CARREGAR DADOS ---
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const { data, error } = await supabase
-          .from('user_tool_data')
-          .select('data')
-          .eq('user_id', user.id)
-          .eq('tool_name', 'sonar')
-          .single();
-        if (error && error.code !== 'PGRST116') throw error;
-        if (data) {
-          setFormState(data.data);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar dados do sonar:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUserData();
-  }, [user]);
-
-  // --- SALVAR DADOS ---
-  const handleSaveData = async () => {
-      if (!user) return;
-      setIsSaving(true);
-      setSaveStatus('idle');
-      try {
-          const { error } = await supabase.from('user_tool_data').upsert({
-              user_id: user.id,
-              tool_name: 'sonar',
-              data: formState,
-              updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id, tool_name' });
-
-          if (error) throw error;
-          setSaveStatus('success');
-      } catch (error) {
-          setSaveStatus('error');
-          console.error("Erro ao salvar dados do sonar:", error);
-      } finally {
-          setIsSaving(false);
-          setTimeout(() => setSaveStatus('idle'), 2000);
-      }
-  };
 
   const handleFormChange = (name, value) => {
     setFormState(prevState => ({ ...prevState, [name]: value }));
@@ -83,7 +38,6 @@ export default function Sonar() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    // ... lógica de cálculo permanece a mesma ...
     const I = Number(formState.impressions); const C = Number(formState.clicks);
     const PV = Number(formState.pageviews); const CO = Number(formState.checkouts);
     const P = Number(formState.purchases); const SP = Number(formState.adSpend);
@@ -103,20 +57,30 @@ export default function Sonar() {
     setResults({ ctr, conn, pconv, cconv, totalConversion, cac, roas, purchases: P, revenue, profit, cpm: Number(formState.cpm), cpc: Number(formState.cpc) });
   }
 
-  // ... (statusMsg, statusClass, formFields permanecem os mesmos) ...
-    let statusMsg, statusClass;
-    if (performance < 1) { statusMsg = 'MOMENTO DE OTIMIZAÇÃO! É necessário melhorar significativamente suas métricas antes de escalar.'; statusClass = 'border-[var(--rosa-legiao)] text-[var(--rosa-legiao)]';
-    } else if (performance < 2) { statusMsg = 'QUASE LÁ! Estamos nos aproximando do momento ideal para escalar. Otimize os pontos indicados abaixo.'; statusClass = 'border-[var(--rosa-legiao)] text-[var(--rosa-legiao)]';
-    } else { statusMsg = 'MOMENTO IDEAL PARA ESCALA! Suas métricas estão excelentes, hora de investir mais!'; statusClass = 'border-[var(--azul-legiao)] text-[var(--azul-legiao)]'; }
-    const formFields = [
-        { name: 'impressions', label: 'Impressões', placeholder: 'Número total de impressões', section: 'anuncios' }, { name: 'clicks', label: 'Cliques no Link', placeholder: 'Número total de cliques', section: 'anuncios' },
-        { name: 'cpm', label: 'CPM (R$)', placeholder: 'Custo por 1000 impressões', section: 'anuncios' }, { name: 'cpc', label: 'CPC (R$)', placeholder: 'Custo por clique', section: 'anuncios' },
-        { name: 'pageviews', label: 'Visualizações da Página de Destino', placeholder: 'Número total de visualizações', section: 'site' }, { name: 'checkouts', label: 'Checkouts Iniciados', placeholder: 'Número de checkouts iniciados', section: 'site' },
-        { name: 'purchases', label: 'Compras', placeholder: 'Número de compras realizadas', section: 'site' }, { name: 'adSpend', label: 'Investimento Total (R$)', placeholder: 'Valor total investido', section: 'site' },
-        { name: 'avgOrder', label: 'Ticket Médio (R$)', placeholder: 'Valor do seu produto', section: 'site' },
-    ];
-    
-  if (isLoading) return <div className="text-center p-10">Carregando...</div>;
+  const { statusMsg, statusClass } = useMemo(() => {
+    let msg, cssClass;
+    if (performance < 1) { 
+        msg = 'MOMENTO DE OTIMIZAÇÃO! É necessário melhorar significativamente suas métricas antes de escalar.'; 
+        cssClass = 'border-[var(--rosa-legiao)] text-[var(--rosa-legiao)]';
+    } else if (performance < 2) { 
+        msg = 'QUASE LÁ! Estamos nos aproximando do momento ideal para escalar. Otimize os pontos indicados abaixo.'; 
+        cssClass = 'border-[var(--rosa-legiao)] text-[var(--rosa-legiao)]';
+    } else { 
+        msg = 'MOMENTO IDEAL PARA ESCALA! Suas métricas estão excelentes, hora de investir mais!'; 
+        cssClass = 'border-[var(--azul-legiao)] text-[var(--azul-legiao)]'; 
+    }
+    return { statusMsg: msg, statusClass: cssClass };
+  }, [performance]);
+
+  const formFields = [
+      { name: 'impressions', label: 'Impressões', placeholder: 'Número total de impressões', section: 'anuncios' }, { name: 'clicks', label: 'Cliques no Link', placeholder: 'Número total de cliques', section: 'anuncios' },
+      { name: 'cpm', label: 'CPM (R$)', placeholder: 'Custo por 1000 impressões', section: 'anuncios' }, { name: 'cpc', label: 'CPC (R$)', placeholder: 'Custo por clique', section: 'anuncios' },
+      { name: 'pageviews', label: 'Visualizações da Página de Destino', placeholder: 'Número total de visualizações', section: 'site' }, { name: 'checkouts', label: 'Checkouts Iniciados', placeholder: 'Número de checkouts iniciados', section: 'site' },
+      { name: 'purchases', label: 'Compras', placeholder: 'Número de compras realizadas', section: 'site' }, { name: 'adSpend', label: 'Investimento Total (R$)', placeholder: 'Valor total investido', section: 'site' },
+      { name: 'avgOrder', label: 'Ticket Médio (R$)', placeholder: 'Valor do seu produto', section: 'site' },
+  ];
+
+  if (isLoading) return <div className="text-center p-10">Carregando dados...</div>;
 
   return (
     <div className="space-y-8 px-4 py-6 max-w-7xl mx-auto">
@@ -143,9 +107,8 @@ export default function Sonar() {
                 </div>
             </div>
             <button type="submit" className="btn-legiao w-full !mt-8">Calcular Métricas</button>
-            {/* --- BOTÃO DE SALVAR --- */}
             {user && (
-                <button type="button" onClick={handleSaveData} disabled={isSaving || saveStatus === 'success'} className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2
+                <button type="button" onClick={() => saveData(formState)} disabled={isSaving || saveStatus === 'success'} className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2
                     ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
                     ${saveStatus === 'success' ? 'bg-green-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
                     {isSaving ? ( <><LoaderCircle className="animate-spin"/> Salvando</>
@@ -154,7 +117,6 @@ export default function Sonar() {
                 </button>
             )}
         </form>
-        {/* ... (Coluna da direita com Radar e Resultados) ... */}
         <div className="space-y-8">
           <div className="bg-zinc-900/80 border border-zinc-700 p-6 rounded-2xl shadow-lg">
             <p className="text-center text-zinc-400 mb-4">Preencha os campos e clique em "Calcular" para visualizar o resultado</p>

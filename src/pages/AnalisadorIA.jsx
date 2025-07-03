@@ -1,4 +1,5 @@
-// src/pages/AnalisadorIA.jsx (Versão final, segura e com histórico)
+// Local de Instalação: src/pages/AnalisadorIA.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -8,13 +9,13 @@ import { supabase } from '../supabase';
 
 export default function AnalisadorIA() {
   const { user } = useAuth();
-  
+
   // Estados da UI
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [error, setError] = useState('');
-  
+
   // Estados dos Dados
   const [campaignData, setCampaignData] = useState('');
   const [analysisResult, setAnalysisResult] = useState('');
@@ -55,21 +56,20 @@ export default function AnalisadorIA() {
       setError('Por favor, insira os dados da campanha para análise.');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
     setAnalysisResult('');
     setAnalysisTitle(`Análise de ${new Date().toLocaleDateString('pt-BR')}`);
 
     try {
-      // CHAMA A EDGE FUNCTION SEGURA!
       const { data, error: funcError } = await supabase.functions.invoke('gestor-trafego-ia', {
         body: { campaignData },
       });
 
       if (funcError) throw funcError;
       if (data.error) throw new Error(data.error);
-      
+
       setAnalysisResult(data.analysis);
 
     } catch (err) {
@@ -79,7 +79,7 @@ export default function AnalisadorIA() {
       setIsLoading(false);
     }
   };
-  
+
   const handleSaveAnalysis = async () => {
     if (!user || !campaignData || !analysisResult || !analysisTitle) {
         setError("Título, dados da campanha e resultado da análise são necessários para salvar.");
@@ -97,11 +97,11 @@ export default function AnalisadorIA() {
           analysis_result: analysisResult
         })
         .select()
-        .single(); // Espera um único registro de volta
+        .single();
 
       if (error) throw error;
       setSaveStatus('success');
-      setSavedAnalyses([data, ...savedAnalyses]); // Adiciona a nova análise no topo da lista
+      setSavedAnalyses([data, ...savedAnalyses]);
     } catch (err) {
       setSaveStatus('error');
       setError("Erro ao salvar a análise.");
@@ -129,7 +129,7 @@ export default function AnalisadorIA() {
   return (
     <div className="flex flex-col h-full bg-[#0f0f0f] text-white p-4">
       <PageHeader title="Gestor de Tráfego Sênior" description="Cole os dados de suas campanhas e receba uma análise profunda e um plano de ação tático do nosso especialista em tráfego." />
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
         {/* Coluna de Histórico (Esquerda) */}
         <div className="lg:col-span-1 bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6">
@@ -164,7 +164,8 @@ export default function AnalisadorIA() {
               </form>
             </div>
 
-            <div className="bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6">
+            {/* AQUI ESTÁ A MUDANÇA! Adicionamos a classe 'animate-fade-in' */}
+            <div className={`bg-zinc-900/80 border border-zinc-700 rounded-2xl p-6 ${analysisResult ? 'animate-fade-in' : ''}`}>
                 <div className="flex justify-between items-start mb-4">
                     <h2 className="text-xl font-semibold text-white flex items-center gap-2"><Bot /> Análise e Plano de Ação</h2>
                     {analysisResult && user && (

@@ -1,81 +1,25 @@
-// src/pages/Simulador.jsx (Com persistência de dados e feedback)
+// Local de Instalação: src/pages/Simulador.jsx
+// CÓDIGO COMPLETO E ATUALIZADO
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
 import PageHeader from '../components/ui/PageHeader';
-import { useAuth } from '../context/AuthContext'; // Importar hook de autenticação
-import { supabase } from '../supabase'; // Importar cliente Supabase
-import { Save, LoaderCircle, Check } from 'lucide-react'; // Ícones para feedback
+import { useToolData } from '../hooks/useToolData';
+import { useAuth } from '../context/AuthContext';
+import { Save, LoaderCircle, Check } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function Simulador() {
-  // --- ESTADOS DE CONTROLE ---
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle');
-
-  // --- ESTADOS DA FERRAMENTA ---
-  const [form, setForm] = useState({
+  const initialState = {
     valorProduto: '', orcamento: '', gasto: '',
     vendas: '', ctr: '', cpc: '', cpm: '', frequencia: '',
-  });
-  const [resultado, setResultado] = useState(null);
-
-  // --- CARREGAR DADOS DO USUÁRIO ---
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const { data, error } = await supabase
-          .from('user_tool_data')
-          .select('data')
-          .eq('user_id', user.id)
-          .eq('tool_name', 'simulador')
-          .single();
-
-        if (error && error.code !== 'PGRST116') throw error;
-        if (data) {
-          setForm(data.data);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar dados do simulador:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUserData();
-  }, [user]);
-
-  // --- SALVAR DADOS DO USUÁRIO ---
-  const handleSaveData = async () => {
-    if (!user) return;
-    setIsSaving(true);
-    setSaveStatus('idle');
-    try {
-      const { error } = await supabase.from('user_tool_data').upsert({
-        user_id: user.id,
-        tool_name: 'simulador',
-        data: form,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id, tool_name' });
-
-      if (error) throw error;
-      setSaveStatus('success');
-    } catch (error) {
-      setSaveStatus('error');
-      console.error("Erro ao salvar dados do simulador:", error);
-    } finally {
-      setIsSaving(false);
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }
   };
 
+  const { data: form, setData: setForm, isLoading, isSaving, saveStatus, saveData } = useToolData('simulador', initialState);
+  const [resultado, setResultado] = useState(null);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -83,13 +27,12 @@ export default function Simulador() {
 
   function calcularMetrica(e) {
     e.preventDefault();
-    // ... (lógica de cálculo permanece a mesma)
     const { valorProduto, gasto, vendas, ctr, cpc, frequencia } = form;
     const numVendas = Number(vendas);
     const valorTotal = Number(valorProduto) * numVendas;
     const lucro = valorTotal - Number(gasto);
-    const cpa = Number(gasto) / (numVendas || 1);
-    const roas = valorTotal / Number(gasto);
+    const cpa = numVendas > 0 ? Number(gasto) / numVendas : 0;
+    const roas = Number(gasto) > 0 ? valorTotal / Number(gasto) : 0;
     const cpaMax = Number(valorProduto);
     const cpaIdeal = (Number(valorProduto) / 1.5).toFixed(2);
     const cpaMeta = (Number(valorProduto) / 2).toFixed(2);
@@ -119,7 +62,7 @@ export default function Simulador() {
     datasets: [{ label: 'R$', data: [Number(resultado?.gasto), resultado?.valorTotal, resultado?.lucro], backgroundColor: '#00ffc3' }],
   };
 
-  if (isLoading) return <div className="text-center p-10">Carregando...</div>;
+  if (isLoading) return <div className="text-center p-10">Carregando dados...</div>;
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white px-4 py-10">
@@ -132,22 +75,18 @@ export default function Simulador() {
         <form onSubmit={calcularMetrica} className="md:w-1/2 w-full space-y-4 bg-zinc-900 p-6 rounded-2xl border border-zinc-700 self-start">
           {[{ name: 'valorProduto', label: 'Valor do Produto (R$)' }, { name: 'orcamento', label: 'Orçamento Diário (R$)' }, { name: 'gasto', label: 'Valor Gasto (R$)' }, { name: 'vendas', label: 'Vendas Realizadas' }, { name: 'ctr', label: 'CTR (%)' }, { name: 'cpc', label: 'CPC (R$)' }, { name: 'cpm', label: 'CPM (R$)' }, { name: 'frequencia', label: 'Frequência' }].map(({ name, label }) => (
             <div key={name}>
-              <label className="text-sm text-zinc-400">{label}</label>
-              <input type="number" step="any" name={name} value={form[name]} onChange={handleChange} className="w-full bg-zinc-800 p-3 rounded-xl mt-1 border border-zinc-700" required />
+              <label htmlFor={name} className="text-sm text-zinc-400">{label}</label>
+              <input id={name} type="number" step="any" name={name} value={form[name]} onChange={handleChange} className="w-full bg-zinc-800 p-3 rounded-xl mt-1 border border-zinc-700" required />
             </div>
           ))}
           <button type="submit" className="btn-legiao w-full mt-4">🔍 Analisar Campanha</button>
-          
-          {/* --- BOTÃO DE SALVAR COM FEEDBACK VISUAL --- */}
+
           {user && (
             <button
                 type="button"
-                onClick={handleSaveData}
+                onClick={() => saveData(form)}
                 disabled={isSaving || saveStatus === 'success'}
-                className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2 mt-2
-                    ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
-                    ${saveStatus === 'success' ? 'bg-green-600' : 'bg-zinc-700 hover:bg-zinc-600'}
-                `}
+                className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2 mt-2 ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''} ${saveStatus === 'success' ? 'bg-green-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}
             >
                 {isSaving ? ( <><LoaderCircle className="animate-spin"/> Salvando</>
                 ) : saveStatus === 'success' ? ( <><Check /> Salvo</>
@@ -157,9 +96,9 @@ export default function Simulador() {
           )}
         </form>
 
-        {/* ... (Bloco de Resultados permanece o mesmo) ... */}
+        {/* AQUI ESTÁ A MUDANÇA! Adicionamos a classe 'animate-fade-in' */}
         {resultado && (
-          <div className="md:w-1/2 w-full space-y-6">
+          <div className="md:w-1/2 w-full space-y-6 animate-fade-in">
             <div className={`p-6 rounded-xl border ${resultado.status.cor === 'green' ? 'border-green-500 bg-green-900/10' : resultado.status.cor === 'red' ? 'border-red-500 bg-red-900/10' : resultado.status.cor === 'yellow' ? 'border-yellow-400 bg-yellow-900/10' : 'border-blue-400 bg-blue-900/10'}`}>
               <h2 className="text-xl font-bold mb-2">{resultado.status.titulo}</h2>
               <p>{resultado.status.texto}</p>
