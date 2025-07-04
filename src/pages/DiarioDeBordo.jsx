@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/DiarioDeBordo.jsx
-// CÓDIGO FINAL COM SISTEMA DE ANOTAÇÕES (VERSÃO SIMPLIFICADA SEM FUNIL)
+// CÓDIGO FINAL COM SISTEMA DE ANOTAÇÕES E BOTÃO DE SALVAR NO MODAL
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -16,9 +16,11 @@ import {
     Percent, 
     Target,
     Pencil,
-    X
+    X,
+    Save // Importar o ícone Save
 } from 'lucide-react';
 import GerirProdutosModal from '../components/GerirProdutosModal';
+import ResultCard from '../components/ui/ResultCard';
 
 // --- MODAL DE NOTAS ---
 const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
@@ -26,6 +28,24 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
     
     const [note, setNote] = useState(dayData?.notes || '');
     const [timeoutId, setTimeoutId] = useState(null);
+    const [isSavingNote, setIsSavingNote] = useState(false); // Novo estado para o botão de salvar
+    const [noteSaveStatus, setNoteSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
+
+    const triggerSave = useCallback(async (newNoteContent) => {
+        setIsSavingNote(true);
+        setNoteSaveStatus('saving');
+        try {
+            await onSave(day, { ...dayData, notes: newNoteContent });
+            setNoteSaveStatus('success');
+            setTimeout(() => setNoteSaveStatus('idle'), 2000); // Reset status after 2s
+        } catch (error) {
+            setNoteSaveStatus('error');
+            console.error("Erro ao salvar anotação:", error);
+            setTimeout(() => setNoteSaveStatus('idle'), 2000); // Reset status after 2s
+        } finally {
+            setIsSavingNote(false);
+        }
+    }, [day, dayData, onSave]);
 
     const handleNoteChange = (e) => {
         const newNote = e.target.value;
@@ -33,9 +53,14 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
 
         clearTimeout(timeoutId);
         const newTimeoutId = setTimeout(() => {
-            onSave(day, { ...dayData, notes: newNote });
-        }, 1000); // Salva 1 segundo após parar de digitar
+            triggerSave(newNote);
+        }, 1000); // Auto-save 1 second after last change
         setTimeoutId(newTimeoutId);
+    };
+
+    const handleSaveButtonClick = () => {
+        clearTimeout(timeoutId); // Clear any pending auto-save
+        triggerSave(note); // Force save immediately
     };
 
     return (
@@ -49,8 +74,19 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
                     value={note}
                     onChange={handleNoteChange}
                     placeholder="Cole aqui os dados da sua campanha ou anote o que foi feito no dia..."
-                    className="input w-full min-h-[300px] resize-y text-sm"
+                    className="input w-full min-h-[300px] resize-y text-sm mb-4"
                 />
+                <button 
+                    onClick={handleSaveButtonClick} 
+                    disabled={isSavingNote || noteSaveStatus === 'success'}
+                    className={`w-full py-2.5 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2 
+                        ${isSavingNote ? 'bg-zinc-500 cursor-not-allowed' : ''}
+                        ${noteSaveStatus === 'success' ? 'bg-green-600' : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:opacity-90'}`}
+                >
+                    {isSavingNote ? (<><LoaderCircle className="animate-spin"/> Salvando...</>) 
+                    : noteSaveStatus === 'success' ? (<><CheckCircle /> Salvo!</>) 
+                    : (<><Save /> Salvar Anotação</>)}
+                </button>
             </div>
         </div>
     );
@@ -64,18 +100,22 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        // Atualiza o estado local do React imediatamente
         onDataChange(day, name, value === '' ? null : parseFloat(value));
 
+        // Limpa qualquer timeout anterior para evitar múltiplos saves rápidos
         clearTimeout(timeoutId);
+
+        // Define um novo timeout para salvar os dados após um pequeno atraso
         const newTimeoutId = setTimeout(() => {
             setIsSaving(true);
             onSave(day, { ...data, [name]: parseFloat(value) || 0 })
                 .then(() => {
                     setIsSaved(true);
-                    setTimeout(() => setIsSaved(false), 2000);
+                    setTimeout(() => setIsSaved(false), 2000); // Mostra 'Salvo' por 2 segundos
                 })
                 .finally(() => setIsSaving(false));
-        }, 1500);
+        }, 1500); // Salva 1.5 segundos após a última alteração
         setTimeoutId(newTimeoutId);
     };
 
@@ -397,5 +437,5 @@ export default function DiarioDeBordo() {
         onSave={handleSave}
       />
     </div>
-  );
+  )
 }
