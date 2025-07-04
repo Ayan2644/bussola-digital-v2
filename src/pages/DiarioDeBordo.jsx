@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/DiarioDeBordo.jsx
-// CÓDIGO FINAL COM SISTEMA DE ANOTAÇÕES
+// CÓDIGO FINAL COM SISTEMA DE ANOTAÇÕES (VERSÃO SIMPLIFICADA SEM FUNIL)
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';

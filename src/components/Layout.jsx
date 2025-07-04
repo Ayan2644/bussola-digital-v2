@@ -1,7 +1,7 @@
 // Local de Instalação: src/components/Layout.jsx
-// CÓDIGO FINAL COM O DASHBOARD NO MENU
+// CÓDIGO FINAL COM O DASHBOARD NO MENU RENOMEADO PARA PERFORMANCE
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; // CORREÇÃO AQUI: '=>' alterado para 'from'
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Menu, X, LogOut, User, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +21,7 @@ export default function Layout() {
 
   // AQUI ESTÁ A LISTA DE MENU ATUALIZADA
   const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: "🚀" },
+    { href: "/dashboard", label: "Performance", icon: "🚀" },
     { href: "/diario-de-bordo", label: "Diário de Bordo", icon: "📈" },
     { href: "/planejamento", label: "Planejamento", icon: "🧠" },
     { href: "/simulador", label: "Simulador", icon: "📊" },
