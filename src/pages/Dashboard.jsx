@@ -1,54 +1,59 @@
-import { useState } from "react";
-import { supabase } from "../supabase";
-import Simulador from "./Simulador";
-import Conta from "./Conta";
+// Local de Instalação: src/pages/Dashboard.jsx
+// CÓDIGO DE TESTE SIMPLIFICADO PARA ISOLAR O ERRO
 
-export default function Dashboard({ session }) {
-  const [aba, setAba] = useState("simulador");
+import React from 'react';
+import PageHeader from '../components/ui/PageHeader';
+import { Calendar as CalendarIcon, ShoppingCart, ChevronDown } from 'lucide-react';
 
-  const menus = [
-    { id: "simulador", nome: "Simulador de Escala" },
-    { id: "conta", nome: "Minha Conta" },
-  ];
-
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
-
-  return (
-    <div className="flex h-screen bg-gray-900">
-      {/* Menu Lateral */}
-      <aside className="w-64 bg-gray-800 text-white flex flex-col p-4">
-        <h1 className="text-2xl font-bold mb-8 text-center">🧭 Bússola Digital</h1>
-        {menus.map((menu) => (
-          <button
-            key={menu.id}
-            onClick={() => setAba(menu.id)}
-            className={`text-left mb-3 px-4 py-2 rounded ${
-              aba === menu.id
-                ? "bg-gradient-to-r from-pink-500 to-purple-600"
-                : "hover:bg-gray-700"
-            }`}
-          >
-            {menu.nome}
-          </button>
-        ))}
-        <div className="mt-auto">
-          <button
-            onClick={logout}
-            className="text-sm text-red-400 hover:text-red-200 mt-6"
-          >
-            Sair da conta
-          </button>
-        </div>
-      </aside>
-
-      {/* Conteúdo Principal */}
-      <main className="flex-1 p-6 overflow-auto">
-        {aba === "simulador" && <Simulador />}
-        {aba === "conta" && <Conta user={session.user} />}
-      </main>
+// Componente de card simplificado, sem lógica complexa
+const KPICard = ({ title, metric, delta }) => (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+        <p className="text-zinc-400 text-sm font-medium">{title}</p>
+        <p className="text-3xl font-bold text-white mt-2">{metric}</p>
+        <p className="mt-1 flex items-center space-x-1 text-sm text-zinc-400">
+            <span>{delta}</span>
+        </p>
     </div>
-  );
+);
+
+// Componente principal do Dashboard, sem busca de dados ou estados
+export default function Dashboard() {
+    return (
+        <div className="text-white px-4 py-10">
+            <PageHeader title="Resumo de Performance" description="Sua central de inteligência para análise de dados e tomada de decisão estratégica." />
+
+            <div className="w-full max-w-7xl mx-auto mt-8 space-y-8">
+                {/* --- SEÇÃO DE FILTROS --- */}
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                    <button className="input flex-1 w-full text-left flex items-center justify-between">
+                        <div className="flex items-center gap-2"><CalendarIcon size={16} /><span>Filtrar Período</span></div>
+                        <ChevronDown size={16}/>
+                    </button>
+                    <button className="input flex-1 w-full text-left flex items-center justify-between">
+                        <div className="flex items-center gap-2"><ShoppingCart size={16}/><span>Todos os Produtos</span></div>
+                        <ChevronDown size={16}/>
+                    </button>
+                </div>
+                
+                {/* --- SEÇÃO DE KPIs COM DADOS ESTÁTICOS --- */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <KPICard title="Faturamento Total" metric="R$ 0,00" delta="Carregando dados..." />
+                    <KPICard title="Lucro Total" metric="R$ 0,00" delta="Carregando dados..." />
+                    <KPICard title="ROAS Total" metric="0.00" delta="Carregando dados..." />
+                </div>
+                
+                {/* --- SEÇÃO DE GRÁFICOS COM PLACEHOLDERS --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h3 className="text-lg font-semibold text-white">Performance ao Longo do Tempo</h3>
+                        <div className="h-80 flex items-center justify-center text-zinc-500">O gráfico aparecerá aqui.</div>
+                    </div>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                        <h3 className="text-lg font-semibold text-white mb-4">Faturamento por Produto</h3>
+                         <div className="h-64 flex items-center justify-center text-zinc-500">O gráfico aparecerá aqui.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }

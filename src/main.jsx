@@ -1,5 +1,5 @@
 // Local de Instalação: src/main.jsx
-// CÓDIGO COMPLETO E ATUALIZADO
+// CÓDIGO FINAL E CORRIGIDO
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -15,12 +15,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import AuthLayout from './components/AuthLayout';
 
-// Páginas de Autenticação
+// Páginas
 import Login from './pages/Login';
 import EsqueciSenha from './pages/EsqueciSenha';
 import DefinirSenha from './pages/DefinirSenha';
-
-// Páginas das Ferramentas da Aplicação
+import Dashboard from './pages/Dashboard';
 import Planejamento from './pages/Planejamento';
 import Simulador from './pages/Simulador';
 import Sonar from './pages/Sonar';
@@ -28,7 +27,7 @@ import MetricasAgendamento from './pages/MetricasAgendamento';
 import CPAMaximo from './pages/CPAMaximo';
 import AnalisadorIA from './pages/AnalisadorIA';
 import Conta from './pages/Conta';
-import DiarioDeBordo from './pages/DiarioDeBordo'; // <- IMPORTAR NOVA PÁGINA
+import DiarioDeBordo from './pages/DiarioDeBordo';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -36,15 +35,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <Toaster position="top-right" toastOptions={{ /* ... */ }} />
         <Routes>
+          {/* Rotas de Autenticação (públicas) */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/definir-senha" element={<DefinirSenha />} />
           </Route>
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Navigate to="/planejamento" replace />} />
+          {/* Rotas Protegidas (dentro da aplicação) */}
+          <Route path="/" element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="planejamento" element={<Planejamento />} />
               <Route path="simulador" element={<Simulador />} />
               <Route path="sonar" element={<Sonar />} />
@@ -52,7 +54,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="cpa-maximo" element={<CPAMaximo />} />
               <Route path="analisador-ia" element={<AnalisadorIA />} />
               <Route path="conta" element={<Conta />} />
-              <Route path="diario-de-bordo" element={<DiarioDeBordo />} /> {/* <- ADICIONAR NOVA ROTA */}
+              <Route path="diario-de-bordo" element={<DiarioDeBordo />} />
             </Route>
           </Route>
         </Routes>

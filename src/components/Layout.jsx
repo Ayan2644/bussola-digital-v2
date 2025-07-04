@@ -1,5 +1,5 @@
 // Local de Instalação: src/components/Layout.jsx
-// CÓDIGO FINAL E COMPLETO
+// CÓDIGO FINAL COM O DASHBOARD NO MENU
 
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
@@ -19,15 +19,16 @@ export default function Layout() {
     localStorage.setItem('desktopMenuCollapsed', isDesktopMenuCollapsed);
   }, [isDesktopMenuCollapsed]);
 
-  // AQUI ESTÁ O NOVO ITEM DE MENU
+  // AQUI ESTÁ A LISTA DE MENU ATUALIZADA
   const menuItems = [
+    { href: "/dashboard", label: "Dashboard", icon: "🚀" },
+    { href: "/diario-de-bordo", label: "Diário de Bordo", icon: "📈" },
     { href: "/planejamento", label: "Planejamento", icon: "🧠" },
     { href: "/simulador", label: "Simulador", icon: "📊" },
     { href: "/sonar", label: "Sonar", icon: "📡" },
     { href: "/metricas-agendamento", label: "Agendamento", icon: "🗓️" },
     { href: "/cpa-maximo", label: "CPA Máximo", icon: "🎯" },
     { href: "/analisador-ia", label: "Gestor Sênior", icon: "🤖" },
-    { href: "/diario-de-bordo", label: "Diário de Bordo", icon: "📈" },
     { href: "/conta", label: "Conta", icon: "👤" },
   ];
 
