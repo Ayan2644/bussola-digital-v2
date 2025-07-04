@@ -4,10 +4,10 @@
 import React, { useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { useToolData } from '../hooks/useToolData';
-import InfoCard from '../components/ui/InfoCard'; // <- IMPORTANDO O NOVO COMPONENTE
-import { Save, LoaderCircle, Check } from 'lucide-react';
+import InfoCard from '../components/ui/InfoCard';
+import { Save, LoaderCircle, Check, Target, DollarSign, Users, TrendingUp, BarChart, ShoppingCart } from 'lucide-react';
 
-// --- COMPONENTES DE UI ---
+// --- COMPONENTES DE UI (Slider e Dropdown permanecem iguais) ---
 function LabeledSlider({ label, value, onChange, min, max, step, format, color = 'blue' }) {
     const accentColor = color === 'blue' ? 'accent-[#008CFF]' : 'accent-[#ED195C]';
     const textColor = color === 'blue' ? 'text-[#008CFF]' : 'text-[#ED195C]';
@@ -30,13 +30,19 @@ function DropdownInput({ options, selected, onChange }) {
     )
 }
 
-function ResultCard({ title, value, subtext, isMain = false }) {
+// --- COMPONENTE ResultCard ATUALIZADO COM ÍCONES ---
+function ResultCard({ title, value, subtext, icon: Icon, className = "" }) {
     return (
-      <div className={`bg-[#1D1D1D]/50 p-5 rounded-2xl border border-zinc-800 text-center flex flex-col justify-center h-full`}>
-        <h2 className="text-xs md:text-sm text-zinc-400 font-medium whitespace-nowrap">{title}</h2>
-        <p className={`font-bold text-white bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent break-words ${isMain ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'}`}>
-          {value}
-        </p>
+      <div className={`bg-[#1D1D1D]/50 p-5 rounded-2xl border border-zinc-800 flex flex-col justify-between h-full ${className}`}>
+        <div>
+          <div className="flex items-center justify-between text-zinc-400">
+            <h2 className="text-sm font-medium whitespace-nowrap">{title}</h2>
+            {Icon && <Icon className="w-5 h-5" />}
+          </div>
+          <p className="font-bold text-white text-3xl md:text-4xl mt-2 break-words">
+            {value}
+          </p>
+        </div>
         {subtext && <p className="text-xs text-zinc-500 mt-1">{subtext}</p>}
       </div>
     );
@@ -45,26 +51,17 @@ function ResultCard({ title, value, subtext, isMain = false }) {
 // --- COMPONENTE PRINCIPAL DA PÁGINA ---
 export default function PlanejamentoEstrategico() {
     const initialState = {
-        metaFaturamento: 50000,
+        metaFaturamento: 454000,
         tipoReceita: 'produto',
-        valorReceita: 197,
+        valorReceita: 4680,
         metricaConversao: 'leads',
         eventosPorVenda: 20,
         custoPorEvento: 8,
     };
 
-    const { 
-        data, 
-        setData, 
-        isLoading, 
-        isSaving, 
-        saveStatus, 
-        saveData 
-    } = useToolData('planejamento', initialState);
+    const { data, setData, isLoading, isSaving, saveStatus, saveData } = useToolData('planejamento', initialState);
 
-    const handleChange = (field, value) => {
-        setData(prevData => ({ ...prevData, [field]: value }));
-    };
+    const handleChange = (field, value) => setData(prevData => ({ ...prevData, [field]: value }));
 
     const opcoesReceita = [{ value: 'produto', label: 'Produto' }, { value: 'servico', label: 'Serviço' }, { value: 'comissao', label: 'Comissão' }];
     const opcoesMetrica = [{ value: 'leads', label: 'Leads' }, { value: 'cliques', label: 'Cliques' }, { value: 'checkouts', label: 'Checkouts' }, { value: 'conversas', label: 'Conversas' }];
@@ -112,32 +109,27 @@ export default function PlanejamentoEstrategico() {
                         <LabeledSlider label={custoLabel} value={data.custoPorEvento} onChange={(v) => handleChange('custoPorEvento', v)} min={0.1} max={100} step={0.1} format={formatCurrency} color="red"/>
                     </InfoCard>
 
-                    <button
-                        onClick={() => saveData(data)}
-                        disabled={isSaving || saveStatus === 'success'}
-                        className={`w-full py-3 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2
-                            ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''}
-                            ${saveStatus === 'success' ? 'bg-green-600' : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:opacity-90'}
-                        `}
-                    >
-                        {isSaving ? ( <><LoaderCircle className="animate-spin"/> Salvando Dados</>
-                        ) : saveStatus === 'success' ? ( <><Check /> Salvo</>
-                        ) : ( <><Save /> Salvar Dados</> )}
+                    <button onClick={() => saveData(data)} disabled={isSaving || saveStatus === 'success'} className={`w-full py-3 rounded-xl font-semibold text-white transition flex items-center justify-center gap-2 ${isSaving ? 'bg-zinc-500 cursor-not-allowed' : ''} ${saveStatus === 'success' ? 'bg-green-600' : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:opacity-90'}`}>
+                        {isSaving ? (<><LoaderCircle className="animate-spin"/> Salvando Dados</>) : saveStatus === 'success' ? (<><Check /> Salvo</>) : (<><Save /> Salvar Dados</>)}
                     </button>
                 </div>
 
-                <div className="lg:col-span-3 bg-zinc-900/80 p-6 md:p-8 rounded-3xl border border-zinc-700 flex flex-col gap-6">
-                    <ResultCard title="Lucro Bruto Estimado" value={formatCurrency(resultados.lucroBruto)} subtext="Faturamento - Investimento" isMain={true}/>
-                    <div className="grid grid-cols-2 gap-6">
-                        <ResultCard title="Vendas Necessárias" value={Math.ceil(resultados.vendasNecessarias)} />
-                        <ResultCard title={`${resultados.nomeEvento} Necessários`} value={Math.ceil(resultados.eventosTotais).toLocaleString('pt-BR')} />
+                {/* --- A NOVA GRELHA DE RESULTADOS OTIMIZADA --- */}
+                <div className="lg:col-span-3 space-y-6">
+                    <div className="bg-gradient-to-br from-blue-500/20 to-pink-500/20 p-6 rounded-2xl border border-zinc-700 text-center">
+                        <h2 className="text-sm text-zinc-300 font-medium">Lucro Bruto Estimado</h2>
+                        <p className="font-bold text-white text-4xl md:text-5xl lg:text-6xl my-2 text-shadow-lg shadow-green-500/50">
+                            {formatCurrency(resultados.lucroBruto)}
+                        </p>
+                        <p className="text-xs text-zinc-400">Faturamento - Investimento</p>
                     </div>
-                    <div className="grid grid-cols-1">
-                        <ResultCard title="Investimento em Tráfego" value={formatCurrency(resultados.investimentoTotal)} subtext="Custo total para atingir a meta"/>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                       <ResultCard title="ROAS" value={resultados.roas.toFixed(2)} subtext="Retorno Sobre Investimento"/>
-                       <ResultCard title="Taxa de Conversão Final" value={`${resultados.taxaConversaoFinal.toFixed(2)}%`} subtext={`De ${resultados.nomeEvento.toLowerCase()} para venda`}/>
+                    <div className="grid grid-cols-2 lg:grid-cols-2 gap-6">
+                        <ResultCard title="Vendas Necessárias" value={Math.ceil(resultados.vendasNecessarias)} icon={ShoppingCart} />
+                        <ResultCard title={`${resultados.nomeEvento} Necessários`} value={Math.ceil(resultados.eventosTotais).toLocaleString('pt-BR')} icon={Users} />
+                        <ResultCard title="Investimento em Tráfego" value={formatCurrency(resultados.investimentoTotal)} icon={DollarSign} subtext="Custo total para atingir a meta" />
+                        <ResultCard title="ROAS" value={resultados.roas.toFixed(2)} icon={TrendingUp} subtext="Retorno Sobre Investimento"/>
+                        <ResultCard title="Taxa de Conversão Final" value={`${resultados.taxaConversaoFinal.toFixed(2)}%`} icon={Target} subtext={`De ${resultados.nomeEvento.toLowerCase()} para venda`} />
+                        <ResultCard title="Meta de Faturamento" value={formatCurrency(data.metaFaturamento)} icon={BarChart} />
                     </div>
                 </div>
             </div>

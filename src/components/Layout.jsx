@@ -1,5 +1,5 @@
 // Local de Instalação: src/components/Layout.jsx
-// CÓDIGO COMPLETO E DEFINITIVO
+// CÓDIGO FINAL E COMPLETO
 
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
@@ -10,17 +10,16 @@ export default function Layout() {
   const rota = useLocation().pathname;
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDesktopMenuCollapsed, setDesktopMenuCollapsed] = useState(
-    // Inicia o menu recolhido se o utilizador já o tinha definido assim
     () => localStorage.getItem('desktopMenuCollapsed') === 'true'
   );
 
   const { user, handleLogout } = useAuth();
 
-  // Salva a preferência do utilizador no localStorage
   useEffect(() => {
     localStorage.setItem('desktopMenuCollapsed', isDesktopMenuCollapsed);
   }, [isDesktopMenuCollapsed]);
 
+  // AQUI ESTÁ O NOVO ITEM DE MENU
   const menuItems = [
     { href: "/planejamento", label: "Planejamento", icon: "🧠" },
     { href: "/simulador", label: "Simulador", icon: "📊" },
@@ -28,6 +27,7 @@ export default function Layout() {
     { href: "/metricas-agendamento", label: "Agendamento", icon: "🗓️" },
     { href: "/cpa-maximo", label: "CPA Máximo", icon: "🎯" },
     { href: "/analisador-ia", label: "Gestor Sênior", icon: "🤖" },
+    { href: "/diario-de-bordo", label: "Diário de Bordo", icon: "📈" },
     { href: "/conta", label: "Conta", icon: "👤" },
   ];
 
@@ -37,16 +37,6 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen bg-[#0f0f0f] text-white">
-      {/* --- Overlay para o Menu Móvel --- */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        ></div>
-      )}
-
-      {/* --- MENU LATERAL (Comportamento duplo e altura corrigida) --- */}
       <aside
         className={`
           fixed top-0 left-0 h-screen bg-[#0b0b0be6] backdrop-blur-md p-4 shadow-xl flex flex-col border-r border-[#1f1f1f] z-40
@@ -55,9 +45,7 @@ export default function Layout() {
           ${isDesktopMenuCollapsed ? "lg:w-20" : "lg:w-64"}
         `}
       >
-        {/* ... (conteúdo do menu como na versão anterior, com ajustes) ... */}
         <div className={`flex items-center justify-between w-full flex-shrink-0 mb-4 ${isDesktopMenuCollapsed ? 'lg:justify-center' : 'lg:justify-between'}`}>
-            {/* Logo visível apenas quando expandido no desktop */}
             {!isDesktopMenuCollapsed && (
                 <img
                     src="/logo-legiao.png"
@@ -121,9 +109,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* --- CONTEÚDO PRINCIPAL (com margem dinâmica para o menu desktop) --- */}
       <div className={`flex-1 flex flex-col w-full transition-all duration-300 ease-in-out ${isDesktopMenuCollapsed ? "lg:ml-20" : "lg:ml-64"}`}>
-        {/* CABEÇALHO MÓVEL (AGORA STICKY NOVAMENTE) */}
         <header className="sticky top-0 z-20 flex items-center p-4 bg-[#0f0f0f]/80 backdrop-blur-lg lg:hidden">
           <button
             onClick={() => setMobileMenuOpen(true)}
