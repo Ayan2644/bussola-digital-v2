@@ -1,7 +1,7 @@
 // Local de Instalação: src/hooks/useToolData.js
-// CÓDIGO COMPLETO E CORRIGIDO
+// VERSÃO FINAL E MAIS ROBUSTA
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -13,45 +13,46 @@ export function useToolData(toolName, initialState) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
 
-  useEffect(() => {
+  const fetchUserData = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
     }
-    const fetchUserData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: remoteData, error } = await supabase
-          .from('user_tool_data')
-          // CORREÇÃO AQUI: Mudamos de .select('data') para .select('*')
-          // para garantir que a resposta da API seja sempre um objeto completo.
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('tool_name', toolName)
-          .single();
 
-        // Este código de erro (PGRST116) significa "zero linhas retornadas", o que não é um erro real.
-        // Apenas significa que o usuário nunca salvou dados para esta ferramenta.
-        if (error && error.code !== 'PGRST116') {
-          throw error;
-        }
+    setIsLoading(true);
+    try {
+      // MUDANÇA PRINCIPAL: Não usamos mais .single()
+      // Pedimos uma lista e depois verificamos se ela está vazia.
+      const { data: remoteDataArray, error } = await supabase
+        .from('user_tool_data')
+        .select('data')
+        .eq('user_id', user.id)
+        .eq('tool_name', toolName);
 
-        // Se encontramos dados remotos, usamos eles para definir o estado.
-        if (remoteData && remoteData.data) {
-          setData(remoteData.data);
-        }
-      } catch (err) {
-        console.error(`Erro ao buscar dados para a ferramenta ${toolName}:`, err);
-        // Notifica o usuário apenas se for um erro inesperado.
-        if (err.code !== 'PGRST116') {
-          toast.error(`Não foi possível carregar os dados de ${toolName}.`);
-        }
-      } finally {
-        setIsLoading(false);
+      if (error) {
+        // Se houver um erro real de banco de dados, nós o lançamos.
+        throw error;
       }
-    };
+
+      // Verificamos se a lista retornada tem algum item.
+      if (remoteDataArray && remoteDataArray.length > 0) {
+        // Se tiver, usamos os dados do primeiro item.
+        setData(remoteDataArray[0].data);
+      } else {
+        // Se a lista estiver vazia, usamos os dados iniciais da ferramenta.
+        setData(initialState);
+      }
+    } catch (err) {
+      console.error(`Erro ao buscar dados para a ferramenta ${toolName}:`, err);
+      toast.error(`Não foi possível carregar os dados de ${toolName}.`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toolName, JSON.stringify(initialState)]);
+
+  useEffect(() => {
     fetchUserData();
-  }, [user, toolName]);
+  }, [fetchUserData]);
 
   const saveData = async (currentData) => {
     if (!user) {
@@ -64,12 +65,17 @@ export function useToolData(toolName, initialState) {
     try {
       const { error } = await supabase
         .from('user_tool_data')
-        .upsert({
-          user_id: user.id,
-          tool_name: toolName,
-          data: currentData,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id, tool_name' });
+        .upsert(
+          {
+            user_id: user.id,
+            tool_name: toolName,
+            data: currentData,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id, tool_name',
+          }
+        );
 
       if (error) throw error;
 

@@ -1,3 +1,6 @@
+/* Local de Instalação: src/index.css */
+/* CÓDIGO CORRIGIDO SEM DUPLICAÇÃO */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -80,13 +83,6 @@
 .next-step {
   @apply bg-zinc-900 text-gray-200 p-3 rounded mt-2 text-sm;
 }
-/* Adicione este bloco no final do ficheiro: src/index.css */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* ... (todo o seu código css existente fica aqui em cima) ... */
 
 /* === ANIMAÇÕES PARA MICRO-INTERAÇÕES === */
 @layer utilities {

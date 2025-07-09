@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/Planejamento.jsx
-// CÓDIGO COMPLETO E ATUALIZADO
+// CÓDIGO COMPLETO E ATUALIZADO USANDO OS NOVOS COMPONENTES
 
 import React, { useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -7,30 +7,11 @@ import { useToolData } from '../hooks/useToolData';
 import InfoCard from '../components/ui/InfoCard';
 import { Save, LoaderCircle, Check, Target, DollarSign, Users, TrendingUp, BarChart, ShoppingCart } from 'lucide-react';
 
-// --- COMPONENTES DE UI (Slider e Dropdown permanecem iguais) ---
-function LabeledSlider({ label, value, onChange, min, max, step, format, color = 'blue' }) {
-    const accentColor = color === 'blue' ? 'accent-[#008CFF]' : 'accent-[#ED195C]';
-    const textColor = color === 'blue' ? 'text-[#008CFF]' : 'text-[#ED195C]';
-    return (
-      <div>
-        <div className="flex justify-between items-baseline mb-1">
-          <label htmlFor={label} className="text-sm text-zinc-300">{label}</label>
-          <span className={`font-bold text-lg ${textColor}`}>{format(value)}</span>
-        </div>
-        <input id={label} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className={`w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer ${accentColor}`} />
-      </div>
-    );
-}
+// Importando os novos componentes que criamos
+import LabeledSlider from '../components/ui/LabeledSlider';
+import DropdownInput from '../components/ui/DropdownInput';
 
-function DropdownInput({ options, selected, onChange }) {
-    return (
-         <select value={selected} onChange={(e) => onChange(e.target.value)} className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-[#008CFF] outline-none">
-            {options.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-          </select>
-    )
-}
-
-// --- COMPONENTE ResultCard ATUALIZADO COM ÍCONES ---
+// O componente ResultCard permanece, pois é mais específico desta página.
 function ResultCard({ title, value, subtext, icon: Icon, className = "" }) {
     return (
       <div className={`bg-[#1D1D1D]/50 p-5 rounded-2xl border border-zinc-800 flex flex-col justify-between h-full ${className}`}>

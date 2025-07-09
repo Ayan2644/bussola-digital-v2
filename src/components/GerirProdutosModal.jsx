@@ -86,7 +86,7 @@ export default function GerirProdutosModal({ isOpen, onClose, products, onProduc
                 <div key={product.id} className="bg-zinc-800 p-3 rounded-lg flex justify-between items-center">
                   <div>
                     <p className="font-semibold text-white">{product.name}</p>
-                    {/* LINHA CORRIGIDA ABAIXO */}
+                    {/* >>>>>>>> LINHA CORRIGIDA ABAIXO <<<<<<<< */}
                     <p className="text-sm text-zinc-400">
                       Ticket: {typeof product.ticket === 'number'
                         ? product.ticket.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

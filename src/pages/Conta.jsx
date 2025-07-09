@@ -1,10 +1,10 @@
 // Local de Instalação: src/pages/Conta.jsx
-// CÓDIGO COMPLETO E ATUALIZADO
+// CÓDIGO COMPLETO E ATUALIZADO COM MELHOR FEEDBACK DE UX
 
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
-import InfoCard from '../components/ui/InfoCard'; // <- IMPORTANDO O NOVO COMPONENTE
+import InfoCard from '../components/ui/InfoCard';
 import { User, Shield, Gem, LogOut, Camera, KeyRound, AlertTriangle, Check, LoaderCircle } from 'lucide-react';
 
 const NavLink = ({ icon: Icon, label, isActive, onClick }) => (
@@ -39,8 +39,9 @@ export default function Conta() {
     const [activeTab, setActiveTab] = useState('perfil');
     const { user, handleLogout } = useAuth();
 
+    // Estados para controlar o feedback do botão
     const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('idle');
+    const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
 
     const [userData, setUserData] = useState({
         name: '', email: '', avatarUrl: null, plan: 'Bússola PRO', memberSince: '25 de Junho, 2025'
@@ -56,18 +57,21 @@ export default function Conta() {
         }
     }, [user]);
 
+    // Função que simula o ato de guardar e atualiza os estados
     const handleSaveChanges = async () => {
         setIsSaving(true);
         setSaveStatus('idle');
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Simula uma chamada de API
+            await new Promise(resolve => setTimeout(resolve, 1500)); 
             setSaveStatus('success');
         } catch (error) {
             setSaveStatus('error');
             console.error("Erro ao salvar:", error);
         } finally {
             setIsSaving(false);
-            setTimeout(() => setSaveStatus('idle'), 2000);
+            // Volta ao estado normal após 2 segundos
+            setTimeout(() => setSaveStatus('idle'), 2000); 
         }
     };
 
@@ -95,6 +99,7 @@ export default function Conta() {
                         </div>
                          <TextInput label="Endereço de E-mail" type="email" value={userData.email} disabled={true} />
                          <div className="text-right">
+                            {/* BOTÃO ATUALIZADO COM LÓGICA DE ESTADO */}
                             <button 
                                 className={`btn-legiao py-2 px-6 flex items-center justify-center gap-2 transition-all duration-300 ${
                                     isSaving ? 'opacity-70 cursor-not-allowed' : ''
