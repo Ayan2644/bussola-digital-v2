@@ -1,7 +1,12 @@
 // Local de Instalação: supabase/functions/gestor-trafego-ia/index.ts
-// CÓDIGO COMPLETO E MAIS SEGURO
+// CÓDIGO FINAL COM O NOME DO MODELO CORRIGIDO
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 const knowledgeBase = `
 Sobre o orçamento de campanha Advantage: O Orçamento de Campanha Advantage é mais adequado para campanhas com pelo menos dois conjuntos de anúncios. Ele gerencia automaticamente o orçamento da campanha em conjuntos de anúncios a fim de oferecer os melhores resultados gerais, distribuindo continuamente em tempo real para os conjuntos de anúncios com as melhores oportunidades.
@@ -40,29 +45,30 @@ Agora, aguarde os dados da campanha do usuário para analisá-los.
 
 
 serve(async (req) => {
-  // Tratamento de CORS para permitir requisições do seu app
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     const { campaignData } = await req.json()
 
-    // --- BLOCO DE VALIDAÇÃO DE SEGURANÇA ADICIONADO ---
     if (!campaignData || typeof campaignData !== 'string' || campaignData.length > 10000) {
       return new Response(JSON.stringify({ error: 'Dados da campanha inválidos ou excedem o limite de 10.000 caracteres.' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    // --- FIM DO BLOCO DE VALIDAÇÃO ---
 
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
     if (!geminiApiKey) {
-      throw new Error('Chave da API do Gemini não configurada nos secrets do projeto.')
+      return new Response(JSON.stringify({ error: 'Chave da API do Gemini não configurada nos secrets do projeto.' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Alteramos 'gemini-pro' para 'gemini-1.5-flash-latest' que é um modelo mais recente e suportado.
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`
+    // ***** FIM DA CORREÇÃO *****
 
     const chatHistory = [
         { role: 'user', parts: [{ text: masterPrompt }] },
@@ -90,7 +96,11 @@ serve(async (req) => {
 
     if (!geminiResponse.ok) {
         const errorBody = await geminiResponse.text();
-        throw new Error(`Erro na API do Gemini: ${geminiResponse.status} ${errorBody}`)
+        console.error('Erro da API do Gemini:', errorBody); 
+        return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${errorBody}` }), {
+            status: geminiResponse.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
 
     const result = await geminiResponse.json();
@@ -98,12 +108,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ analysis: aiResponse }),
-      { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } },
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
+    console.error('Erro inesperado na função:', error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

@@ -1,10 +1,10 @@
 // Local de Instalação: src/hooks/useToolData.js
-// CÓDIGO COMPLETO E ATUALIZADO
+// CÓDIGO COMPLETO E CORRIGIDO
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-hot-toast'; // <- IMPORTANDO O TOAST
+import { toast } from 'react-hot-toast';
 
 export function useToolData(toolName, initialState) {
   const { user } = useAuth();
@@ -23,19 +23,29 @@ export function useToolData(toolName, initialState) {
       try {
         const { data: remoteData, error } = await supabase
           .from('user_tool_data')
-          .select('data')
+          // CORREÇÃO AQUI: Mudamos de .select('data') para .select('*')
+          // para garantir que a resposta da API seja sempre um objeto completo.
+          .select('*')
           .eq('user_id', user.id)
           .eq('tool_name', toolName)
           .single();
 
+        // Este código de erro (PGRST116) significa "zero linhas retornadas", o que não é um erro real.
+        // Apenas significa que o usuário nunca salvou dados para esta ferramenta.
         if (error && error.code !== 'PGRST116') {
           throw error;
         }
-        if (remoteData) {
+
+        // Se encontramos dados remotos, usamos eles para definir o estado.
+        if (remoteData && remoteData.data) {
           setData(remoteData.data);
         }
       } catch (err) {
         console.error(`Erro ao buscar dados para a ferramenta ${toolName}:`, err);
+        // Notifica o usuário apenas se for um erro inesperado.
+        if (err.code !== 'PGRST116') {
+          toast.error(`Não foi possível carregar os dados de ${toolName}.`);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -44,7 +54,10 @@ export function useToolData(toolName, initialState) {
   }, [user, toolName]);
 
   const saveData = async (currentData) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar.");
+      return;
+    }
 
     setIsSaving(true);
     setSaveStatus('idle');
@@ -60,11 +73,9 @@ export function useToolData(toolName, initialState) {
 
       if (error) throw error;
 
-      // FEEDBACK DE SUCESSO
       toast.success('Dados salvos com sucesso!');
       setSaveStatus('success');
     } catch (err) {
-      // FEEDBACK DE ERRO
       toast.error('Ocorreu um erro ao salvar os dados.');
       setSaveStatus('error');
       console.error(`Erro ao salvar dados para a ferramenta ${toolName}:`, err);
