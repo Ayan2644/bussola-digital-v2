@@ -1,4 +1,5 @@
-// src/pages/DefinirSenha.jsx
+// Local de Instalação: src/pages/DefinirSenha.jsx
+// CÓDIGO COMPLETO
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
@@ -36,9 +37,11 @@ export default function DefinirSenha() {
     setMessage('');
 
     try {
+      // Aqui a mágica acontece: o Supabase identifica o usuário pelo link
+      // e atualiza a senha dele.
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      setMessage('Senha atualizada com sucesso! A redirecionar para o login...');
+      setMessage('Senha atualizada com sucesso! Redirecionando para o login...');
       setTimeout(() => navigate('/login'), 3000);
     } catch (error) {
       setError(error.message);
