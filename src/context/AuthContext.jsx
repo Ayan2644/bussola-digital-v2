@@ -1,103 +1,65 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+// Local de Instalação: src/context/AuthContext.jsx
+// CÓDIGO FINAL E ESTABILIZADO PARA CORRIGIR O PROBLEMA DE MÚLTIPLAS ABAS
+
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const AuthContext = createContext();
 
-const AuthProviderWrapper = ({ children }) => {
+export const AuthProvider = ({ children }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    // Função central de segurança
-    const validateAndSetUser = useCallback(async (session) => {
-        if (!session?.user) {
-            setUser(null);
-            return;
-        }
-
-        // SEMPRE vamos buscar os dados mais recentes do utilizador
-        const { data: { user: freshUser }, error } = await supabase.auth.getUser();
-
-        if (error || !freshUser) {
-            await supabase.auth.signOut();
-            setUser(null);
-            return;
-        }
-
-        const subscriptionStatus = freshUser.user_metadata?.subscription_status;
-
-        if (subscriptionStatus === 'inactive') {
-            await supabase.auth.signOut();
-            setUser(null);
-            navigate('/login');
-            toast.error("O seu acesso foi revogado.");
-        } else {
-            setUser(freshUser);
-        }
-    }, [navigate]);
-
+    const [loading, setLoading] = useState(true); // Começa como true
 
     useEffect(() => {
-        // Verificação inicial ao carregar a aplicação
-        const getInitialSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            await validateAndSetUser(session);
-            setLoading(false);
-        };
-        getInitialSession();
+        // Pega a sessão inicial para saber se o usuário já está logado
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null);
+            setLoading(false); // Termina o carregamento inicial AQUI e NUNCA MAIS
+        });
 
-        // Listener para eventos de autenticação
+        // O onAuthStateChange é a fonte da verdade para qualquer mudança
         const { data: authListener } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                await validateAndSetUser(session);
-                setLoading(false);
+            (_event, session) => {
+                // Atualiza o estado do usuário. O React cuidará de re-renderizar o que for preciso.
+                setUser(session?.user ?? null);
 
+                // Lógica de redirecionamento que só precisa ser verificada quando o estado muda
                 const urlHash = window.location.hash;
-                if (_event === 'SIGNED_IN' && urlHash.includes('type=invite')) {
-                    navigate('/definir-senha');
-                } else if (_event === 'PASSWORD_RECOVERY') {
+                if (_event === 'PASSWORD_RECOVERY' || (_event === 'SIGNED_IN' && urlHash.includes('type=invite'))) {
                     navigate('/definir-senha');
                 }
             }
         );
-        
-        // O "SEGURANÇA A FAZER A RONDA" (a cada 5 minutos)
-        const interval = setInterval(async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                await validateAndSetUser(session);
-            }
-        }, 300000); // 300000 ms = 5 minutos
 
-        // Limpeza ao desmontar
+        // Limpeza: remove o listener quando o componente AuthProvider é desmontado
         return () => {
             authListener?.subscription.unsubscribe();
-            clearInterval(interval);
         };
-    }, [validateAndSetUser, navigate]);
-
+    }, [navigate]); // navigate é estável, então este useEffect só roda uma vez
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
     };
 
-    const value = { user, handleLogout, loading, isLoggedIn: !!user };
+    const value = {
+        user,
+        handleLogout,
+        loading,
+        isLoggedIn: !!user,
+    };
 
+    // Renderiza o children apenas se não estiver no carregamento inicial.
+    // Como `loading` agora é estável, isso não causará mais o problema de desmontar/remontar.
     return (
         <AuthContext.Provider value={value}>
             {!loading && children}
         </AuthContext.Provider>
     );
 };
-
-
-export const AuthProvider = ({ children }) => (
-    <AuthProviderWrapper>{children}</AuthProviderWrapper>
-);
-
 
 export const useAuth = () => {
     const context = useContext(AuthContext);

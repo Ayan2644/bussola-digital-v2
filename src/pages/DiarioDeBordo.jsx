@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/DiarioDeBordo.jsx
-// CÓDIGO FINAL COM SISTEMA DE ANOTAÇÕES E BOTÃO DE SALVAR NO MODAL
+// VERSÃO FINAL E ESTABILIZADA COM REALTIME
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -17,10 +17,9 @@ import {
     Target,
     Pencil,
     X,
-    Save // Importar o ícone Save
+    Save
 } from 'lucide-react';
 import GerirProdutosModal from '../components/GerirProdutosModal';
-import ResultCard from '../components/ui/ResultCard';
 
 // --- MODAL DE NOTAS ---
 const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
@@ -28,8 +27,8 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
     
     const [note, setNote] = useState(dayData?.notes || '');
     const [timeoutId, setTimeoutId] = useState(null);
-    const [isSavingNote, setIsSavingNote] = useState(false); // Novo estado para o botão de salvar
-    const [noteSaveStatus, setNoteSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
+    const [isSavingNote, setIsSavingNote] = useState(false);
+    const [noteSaveStatus, setNoteSaveStatus] = useState('idle');
 
     const triggerSave = useCallback(async (newNoteContent) => {
         setIsSavingNote(true);
@@ -37,11 +36,11 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
         try {
             await onSave(day, { ...dayData, notes: newNoteContent });
             setNoteSaveStatus('success');
-            setTimeout(() => setNoteSaveStatus('idle'), 2000); // Reset status after 2s
+            setTimeout(() => setNoteSaveStatus('idle'), 2000);
         } catch (error) {
             setNoteSaveStatus('error');
             console.error("Erro ao salvar anotação:", error);
-            setTimeout(() => setNoteSaveStatus('idle'), 2000); // Reset status after 2s
+            setTimeout(() => setNoteSaveStatus('idle'), 2000);
         } finally {
             setIsSavingNote(false);
         }
@@ -50,17 +49,16 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
     const handleNoteChange = (e) => {
         const newNote = e.target.value;
         setNote(newNote);
-
         clearTimeout(timeoutId);
         const newTimeoutId = setTimeout(() => {
             triggerSave(newNote);
-        }, 1000); // Auto-save 1 second after last change
+        }, 1000);
         setTimeoutId(newTimeoutId);
     };
 
     const handleSaveButtonClick = () => {
-        clearTimeout(timeoutId); // Clear any pending auto-save
-        triggerSave(note); // Force save immediately
+        clearTimeout(timeoutId);
+        triggerSave(note);
     };
 
     return (
@@ -100,22 +98,17 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        // Atualiza o estado local do React imediatamente
         onDataChange(day, name, value === '' ? null : parseFloat(value));
-
-        // Limpa qualquer timeout anterior para evitar múltiplos saves rápidos
         clearTimeout(timeoutId);
-
-        // Define um novo timeout para salvar os dados após um pequeno atraso
         const newTimeoutId = setTimeout(() => {
             setIsSaving(true);
             onSave(day, { ...data, [name]: parseFloat(value) || 0 })
                 .then(() => {
                     setIsSaved(true);
-                    setTimeout(() => setIsSaved(false), 2000); // Mostra 'Salvo' por 2 segundos
+                    setTimeout(() => setIsSaved(false), 2000);
                 })
                 .finally(() => setIsSaving(false));
-        }, 1500); // Salva 1.5 segundos após a última alteração
+        }, 1500);
         setTimeoutId(newTimeoutId);
     };
 
@@ -127,10 +120,9 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
     const cpa = sales > 0 ? (investment / sales).toFixed(2) : '0.00';
     const hasNote = data.notes && data.notes.trim() !== '';
 
-
     return (
         <div className="bg-zinc-800/30 rounded-xl p-3 md:bg-transparent md:p-0 md:rounded-none">
-            {/* --- Mobile Layout --- */}
+            {/* Mobile Layout */}
             <div className="md:hidden">
                 <div className="flex justify-between items-center mb-4">
                     <span className="font-bold text-lg text-white">Dia {String(day).padStart(2, '0')}</span>
@@ -172,7 +164,7 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
                 </div>
             </div>
 
-            {/* --- Desktop Layout --- */}
+            {/* Desktop Layout */}
             <div className="hidden md:grid grid-cols-12 gap-2 md:gap-4 items-center md:px-2 md:py-1 md:hover:bg-zinc-800/50 md:rounded-lg">
                 <div className="col-span-1 text-center font-bold text-zinc-400">{String(day).padStart(2, '0')}</div>
                 <div className="col-span-2"><input type="number" name="investment" value={data.investment ?? ''} onChange={handleInputChange} className="input w-full text-center bg-zinc-800 border-zinc-700" placeholder="-" /></div>
@@ -192,7 +184,6 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
         </div>
     );
 };
-
 
 const MetricCard = ({ icon: Icon, label, value, colorClass = 'text-white' }) => (
     <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 shadow-lg hover:bg-zinc-800 transition-colors duration-300">
@@ -241,33 +232,78 @@ export default function DiarioDeBordo() {
     fetchProducts();
   }, [user]);
 
-  useEffect(() => {
+  const fetchMonthlyData = useCallback(async () => {
     if (!user || !selectedProduct) {
       setMonthlyData({});
       return;
     }
-    const fetchMonthlyData = async () => {
-      setLoading(true);
-      const firstDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
-      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
-      const lastDayOfMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      const { data, error } = await supabase.from('daily_metrics').select('*').eq('product_id', selectedProduct).gte('entry_date', firstDay).lte('entry_date', lastDayOfMonth);
-      if (error) {
-        toast.error("Erro ao carregar dados do mês.");
-        setMonthlyData({});
-      } else {
-        const dataMap = data.reduce((acc, item) => {
-          const day = new Date(item.entry_date).getUTCDate();
-          acc[day] = item;
-          return acc;
-        }, {});
-        setMonthlyData(dataMap);
-      }
-      setLoading(false);
-    };
+    setLoading(true);
+    const firstDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    const lastDayOfMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const { data, error } = await supabase.from('daily_metrics').select('*').eq('product_id', selectedProduct).gte('entry_date', firstDay).lte('entry_date', lastDayOfMonth);
+    if (error) {
+      toast.error("Erro ao carregar dados do mês.");
+      setMonthlyData({});
+    } else {
+      const dataMap = data.reduce((acc, item) => {
+        const day = new Date(item.entry_date).getUTCDate();
+        acc[day] = item;
+        return acc;
+      }, {});
+      setMonthlyData(dataMap);
+    }
+    setLoading(false);
+  }, [user, selectedProduct, selectedMonth, selectedYear]);
+
+  useEffect(() => {
     fetchMonthlyData();
-  }, [selectedProduct, selectedMonth, selectedYear, user]);
+  }, [fetchMonthlyData]);
   
+  useEffect(() => {
+    if (!user || !selectedProduct) return;
+
+    const handleRealtimeUpdate = (payload) => {
+      console.log('[Realtime] Mudança recebida no diário', payload);
+      const changedRecord = payload.new || (payload.eventType === 'DELETE' ? payload.old : null);
+      if (!changedRecord) return;
+      
+      const recordDate = new Date(changedRecord.entry_date);
+      
+      if (recordDate.getUTCFullYear() === selectedYear && recordDate.getUTCMonth() + 1 === selectedMonth) {
+          const day = recordDate.getUTCDate();
+          
+          setMonthlyData(prevData => {
+              const newData = { ...prevData };
+              if (payload.eventType === 'DELETE') {
+                  newData[day] = {}; 
+              } else {
+                  newData[day] = payload.new;
+              }
+              return newData;
+          });
+      }
+    };
+
+    const channel = supabase
+      .channel(`diario_de_bordo:${selectedProduct}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_metrics',
+          filter: `product_id=eq.${selectedProduct}`,
+        },
+        handleRealtimeUpdate
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedProduct, selectedMonth, selectedYear]);
+
   const totals = useMemo(() => {
     const filledDays = Object.values(monthlyData).filter(d => d.investment || d.revenue || d.sales);
     if (filledDays.length === 0) return { totalInvestment: 0, totalRevenue: 0, totalSales: 0, totalResult: 0, averageRoi: '0.00', averageCpa: '0.00' };

@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/AnalisadorIA.jsx
-// ESTE CÓDIGO ESTÁ CORRETO E FUNCIONARÁ APÓS CONFIGURAR O SECRET
+// VERSÃO FINAL COM SINCRONIZAÇÃO REALTIME DO HISTÓRICO
 
 import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -11,22 +11,16 @@ import { toast } from 'react-hot-toast';
 export default function AnalisadorIA() {
   const { user } = useAuth();
 
-  // Estados da UI
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [error, setError] = useState('');
-
-  // Estados dos Dados
   const [campaignData, setCampaignData] = useState('');
   const [analysisResult, setAnalysisResult] = useState('');
   const [analysisTitle, setAnalysisTitle] = useState('');
-
-  // Estados do Histórico
   const [savedAnalyses, setSavedAnalyses] = useState([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
-  // Função para carregar o histórico de análises
   const fetchHistory = useCallback(async () => {
     if (!user) {
       setIsHistoryLoading(false);
@@ -58,6 +52,47 @@ export default function AnalisadorIA() {
     fetchHistory();
   }, [fetchHistory]);
 
+  // ===== INÍCIO DA IMPLEMENTAÇÃO REALTIME =====
+  useEffect(() => {
+    if (!user) return;
+
+    const handleRealtimeUpdate = (payload) => {
+      console.log('[Realtime] Mudança recebida em ia_analyses:', payload);
+      if (payload.eventType === 'INSERT') {
+        // Adiciona a nova análise no topo da lista
+        const newAnalysis = {
+            id: payload.new.id,
+            title: payload.new.title,
+            created_at: payload.new.created_at,
+        };
+        setSavedAnalyses(prev => [newAnalysis, ...prev]);
+      }
+      if (payload.eventType === 'DELETE') {
+        // Remove a análise da lista pelo ID
+        setSavedAnalyses(prev => prev.filter(a => a.id !== payload.old.id));
+      }
+    };
+
+    const channel = supabase
+      .channel(`ia_analyses:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, DELETE
+          schema: 'public',
+          table: 'ia_analyses',
+          filter: `user_id=eq.${user.id}`,
+        },
+        handleRealtimeUpdate
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+  // ===== FIM DA IMPLEMENTAÇÃO REALTIME =====
+
   const handleAnalyze = async (e) => {
     e.preventDefault();
     setError('');
@@ -80,9 +115,6 @@ export default function AnalisadorIA() {
       }
 
       const { data, error: funcError } = await supabase.functions.invoke('gestor-trafego-ia', {
-        headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-        },
         body: { campaignData },
       });
 
@@ -113,22 +145,21 @@ export default function AnalisadorIA() {
     setIsSaving(true);
     setSaveStatus('idle');
     try {
-      const { data, error } = await supabase
+      // O evento de INSERT será capturado pelo listener Realtime,
+      // então não precisamos mais atualizar o estado aqui.
+      const { error } = await supabase
         .from('ia_analyses')
         .insert({
           user_id: user.id,
           title: analysisTitle,
           campaign_data: campaignData,
           analysis_result: analysisResult
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
       
       toast.success("Análise salva com sucesso!");
       setSaveStatus('success');
-      setSavedAnalyses(prev => [data, ...prev]);
 
     } catch (err) {
       setSaveStatus('error');
@@ -157,15 +188,17 @@ export default function AnalisadorIA() {
 
   const deleteAnalysis = async (id) => {
     try {
+        // O evento de DELETE será capturado pelo listener Realtime.
         const { error } = await supabase.from('ia_analyses').delete().eq('id', id);
         if (error) throw error;
-        setSavedAnalyses(savedAnalyses.filter(a => a.id !== id));
         toast.success("Análise excluída.");
     } catch (err) {
         toast.error("Erro ao excluir a análise.");
     }
   };
-
+  
+  // O restante do seu componente (o JSX) permanece o mesmo.
+  // ... cole o resto do return aqui ...
   return (
     <div className="flex flex-col h-full bg-[#0f0f0f] text-white p-4">
       <PageHeader title="Gestor de Tráfego Sênior" description="Cole os dados de suas campanhas e receba uma análise profunda e um plano de ação tático do nosso especialista em tráfego." />
