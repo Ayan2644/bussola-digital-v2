@@ -1,89 +1,106 @@
-// src/context/AuthContext.jsx (Código completo e corrigido)
+// src/context/AuthContext.jsx (Código definitivo com verificação contínua)
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
-// 1. Cria o Contexto
 const AuthContext = createContext();
 
-// Componente Wrapper para que possamos usar o hook useNavigate
 const AuthProviderWrapper = ({ children }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Função central de segurança
+    const validateAndSetUser = useCallback(async (session) => {
+        if (!session?.user) {
+            setUser(null);
+            return;
+        }
+
+        // SEMPRE vamos buscar os dados mais recentes do utilizador
+        const { data: { user: freshUser }, error } = await supabase.auth.getUser();
+
+        if (error || !freshUser) {
+            await supabase.auth.signOut();
+            setUser(null);
+            return;
+        }
+
+        const subscriptionStatus = freshUser.user_metadata?.subscription_status;
+
+        if (subscriptionStatus === 'inactive') {
+            await supabase.auth.signOut();
+            setUser(null);
+            navigate('/login');
+            toast.error("O seu acesso foi revogado.");
+        } else {
+            setUser(freshUser);
+        }
+    }, [navigate]);
+
+
     useEffect(() => {
-        // Verifica a sessão do usuário quando o app carrega
-        const getSession = async () => {
+        // Verificação inicial ao carregar a aplicação
+        const getInitialSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            setUser(session ? session.user : null);
+            await validateAndSetUser(session);
             setLoading(false);
         };
+        getInitialSession();
 
-        getSession();
-
-        // Escuta por mudanças no estado de autenticação (login, logout, etc.)
+        // Listener para eventos de autenticação
         const { data: authListener } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                setUser(session ? session.user : null);
+            async (_event, session) => {
+                await validateAndSetUser(session);
                 setLoading(false);
 
                 const urlHash = window.location.hash;
-                
-                // Lógica para o link de convite (quando o usuário aceita e se cadastra)
                 if (_event === 'SIGNED_IN' && urlHash.includes('type=invite')) {
-                    // Nós o redirecionamos para a página de definir senha.
                     navigate('/definir-senha');
-                } 
-                // Lógica para o link de recuperação de senha (quando o usuário clica em "esqueci a senha")
-                else if (_event === 'PASSWORD_RECOVERY') {
-                    // Nós também o redirecionamos para a página de definir senha.
+                } else if (_event === 'PASSWORD_RECOVERY') {
                     navigate('/definir-senha');
                 }
             }
         );
+        
+        // O "SEGURANÇA A FAZER A RONDA" (a cada 5 minutos)
+        const interval = setInterval(async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await validateAndSetUser(session);
+            }
+        }, 300000); // 300000 ms = 5 minutos
 
-        // Limpa o listener quando o componente é desmontado
+        // Limpeza ao desmontar
         return () => {
             authListener?.subscription.unsubscribe();
+            clearInterval(interval);
         };
-    }, [navigate]); // Adicionamos navigate como dependência
+    }, [validateAndSetUser, navigate]);
 
-    // Função de logout que será disponibilizada globalmente
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        navigate('/login'); // Adicionado para garantir o redirecionamento no logout
+        navigate('/login');
     };
 
-    const value = {
-        user,
-        handleLogout,
-        loading,
-        isLoggedIn: !!user,
-    };
+    const value = { user, handleLogout, loading, isLoggedIn: !!user };
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!loading && children}
         </AuthContext.Provider>
     );
 };
 
 
-// 2. Cria o Provedor do Contexto
-export const AuthProvider = ({ children }) => {
-    // Nós envolvemos o provedor real com um componente que tem acesso ao router
-    // para que possamos usar o hook useNavigate.
-    return (
-        <AuthProviderWrapper>
-            {children}
-        </AuthProviderWrapper>
-    );
-};
+export const AuthProvider = ({ children }) => (
+    <AuthProviderWrapper>{children}</AuthProviderWrapper>
+);
 
 
-// 3. Cria um hook customizado para usar o contexto mais facilmente
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) {
