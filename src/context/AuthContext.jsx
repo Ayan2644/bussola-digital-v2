@@ -1,3 +1,5 @@
+// src/context/AuthContext.jsx (Código completo e corrigido)
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
@@ -27,15 +29,18 @@ const AuthProviderWrapper = ({ children }) => {
                 setUser(session ? session.user : null);
                 setLoading(false);
 
-                // ***** INÍCIO DA NOVA LÓGICA *****
-                // Se o usuário acabou de fazer login E a URL contém 'type=invite',
-                // significa que ele veio de um link de convite.
                 const urlHash = window.location.hash;
+                
+                // Lógica para o link de convite (quando o usuário aceita e se cadastra)
                 if (_event === 'SIGNED_IN' && urlHash.includes('type=invite')) {
                     // Nós o redirecionamos para a página de definir senha.
                     navigate('/definir-senha');
+                } 
+                // Lógica para o link de recuperação de senha (quando o usuário clica em "esqueci a senha")
+                else if (_event === 'PASSWORD_RECOVERY') {
+                    // Nós também o redirecionamos para a página de definir senha.
+                    navigate('/definir-senha');
                 }
-                // ***** FIM DA NOVA LÓGICA *****
             }
         );
 
