@@ -1,5 +1,3 @@
-// src/context/AuthContext.jsx (Código definitivo com verificação contínua)
-
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
