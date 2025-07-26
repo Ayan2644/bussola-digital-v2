@@ -1,0 +1,119 @@
+// Local de Instalação: src/hooks/useDiaryData.js
+// CÓDIGO COMPLETO DO NOVO HOOK
+
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../supabase';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'react-hot-toast';
+
+export function useDiaryData(selectedProduct, selectedYear, selectedMonth) {
+    const { user } = useAuth();
+    const [monthlyData, setMonthlyData] = useState({});
+    const [loading, setLoading] = useState(true);
+
+    const fetchMonthlyData = useCallback(async () => {
+        if (!user || !selectedProduct) {
+            setMonthlyData({});
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const firstDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+            const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+            const lastDayOfMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+            const { data, error } = await supabase
+                .from('daily_metrics')
+                .select('*')
+                .eq('product_id', selectedProduct)
+                .gte('entry_date', firstDay)
+                .lte('entry_date', lastDayOfMonth);
+
+            if (error) throw error;
+
+            const dataMap = data.reduce((acc, item) => {
+                const day = new Date(item.entry_date).getUTCDate();
+                acc[day] = item;
+                return acc;
+            }, {});
+            setMonthlyData(dataMap);
+        } catch (err) {
+            toast.error("Erro ao carregar dados do mês.");
+            setMonthlyData({});
+            console.error("Erro em fetchMonthlyData:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [user, selectedProduct, selectedMonth, selectedYear]);
+
+    const handleSave = async (day, dataToSave) => {
+        if (!user || !selectedProduct) {
+            toast.error("Usuário ou produto não selecionado.");
+            return;
+        }
+        const payload = {
+            user_id: user.id,
+            product_id: selectedProduct,
+            entry_date: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+            investment: dataToSave.investment || 0,
+            revenue: dataToSave.revenue || 0,
+            sales: dataToSave.sales || null,
+            notes: dataToSave.notes,
+        };
+        const { error } = await supabase.from('daily_metrics').upsert(payload, { onConflict: 'user_id, product_id, entry_date' });
+        if (error) {
+            toast.error(`Falha ao salvar: ${error.message}`);
+            console.error("Erro em handleSave:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchMonthlyData();
+    }, [fetchMonthlyData]);
+
+    useEffect(() => {
+        if (!user || !selectedProduct) return;
+
+        const handleRealtimeUpdate = (payload) => {
+            const changedRecord = payload.new || (payload.eventType === 'DELETE' ? payload.old : null);
+            if (!changedRecord) return;
+            
+            const recordDate = new Date(changedRecord.entry_date);
+            
+            if (recordDate.getUTCFullYear() === selectedYear && recordDate.getUTCMonth() + 1 === selectedMonth) {
+                const day = recordDate.getUTCDate();
+                
+                setMonthlyData(prevData => {
+                    const newData = { ...prevData };
+                    if (payload.eventType === 'DELETE') {
+                        newData[day] = {}; 
+                    } else {
+                        newData[day] = payload.new;
+                    }
+                    return newData;
+                });
+            }
+        };
+
+        const channel = supabase
+          .channel(`diario_de_bordo:${selectedProduct}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'daily_metrics',
+              filter: `product_id=eq.${selectedProduct}`,
+            },
+            handleRealtimeUpdate
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+    }, [user, selectedProduct, selectedMonth, selectedYear]);
+
+    return { loading, monthlyData, setMonthlyData, handleSave };
+}

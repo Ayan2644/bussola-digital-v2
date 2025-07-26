@@ -1,5 +1,5 @@
 // Local de Instalação: src/pages/DiarioDeBordo.jsx
-// VERSÃO FINAL E ESTABILIZADA COM REALTIME
+// VERSÃO FINAL E REATORADA, MANTENDO A INTEGRIDADE DA UI
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PageHeader from '../components/ui/PageHeader';
@@ -20,6 +20,7 @@ import {
     Save
 } from 'lucide-react';
 import GerirProdutosModal from '../components/GerirProdutosModal';
+import { useDiaryData } from '../hooks/useDiaryData';
 
 // --- MODAL DE NOTAS ---
 const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
@@ -90,7 +91,7 @@ const NotesModal = ({ isOpen, onClose, dayData, onSave, day }) => {
     );
 };
 
-
+// --- COMPONENTE DE LINHA DIÁRIA ---
 const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
@@ -185,6 +186,7 @@ const DailyEntryRow = ({ day, data, onDataChange, onSave, onOpenNotes }) => {
     );
 };
 
+// --- COMPONENTE DE CARD DE MÉTRICA ---
 const MetricCard = ({ icon: Icon, label, value, colorClass = 'text-white' }) => (
     <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 shadow-lg hover:bg-zinc-800 transition-colors duration-300">
         <div className="flex items-center text-zinc-400 text-sm gap-2">
@@ -195,14 +197,13 @@ const MetricCard = ({ icon: Icon, label, value, colorClass = 'text-white' }) => 
     </div>
 );
 
-
+// --- COMPONENTE PRINCIPAL DA PÁGINA ---
 export default function DiarioDeBordo() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [productLoading, setProductLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [monthlyData, setMonthlyData] = useState({});
   const [isGerirProdutosModalOpen, setIsGerirProdutosModalOpen] = useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [selectedDayForNotes, setSelectedDayForNotes] = useState(null);
@@ -210,99 +211,31 @@ export default function DiarioDeBordo() {
   const selectedMonth = currentDate.getMonth() + 1;
   const selectedYear = currentDate.getFullYear();
   
+  const { loading, monthlyData, setMonthlyData, handleSave } = useDiaryData(selectedProduct, selectedYear, selectedMonth);
+
   const fetchProducts = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    setProductLoading(true);
     const { data, error } = await supabase.from('products').select('*').eq('user_id', user.id).order('name');
     
     if (error) {
       toast.error("Erro ao carregar produtos.");
     } else {
       setAllProducts(data || []);
-      if (data && data.length > 0 && !data.some(p => p.id === selectedProduct)) {
+      if (data && data.length > 0 && !selectedProduct) {
         setSelectedProduct(data[0].id);
       } else if (data.length === 0) {
         setSelectedProduct('');
       }
     }
-    setLoading(false);
+    setProductLoading(false);
   }, [user, selectedProduct]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [user]);
-
-  const fetchMonthlyData = useCallback(async () => {
-    if (!user || !selectedProduct) {
-      setMonthlyData({});
-      return;
+    if (user) {
+        fetchProducts();
     }
-    setLoading(true);
-    const firstDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
-    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
-    const lastDayOfMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    const { data, error } = await supabase.from('daily_metrics').select('*').eq('product_id', selectedProduct).gte('entry_date', firstDay).lte('entry_date', lastDayOfMonth);
-    if (error) {
-      toast.error("Erro ao carregar dados do mês.");
-      setMonthlyData({});
-    } else {
-      const dataMap = data.reduce((acc, item) => {
-        const day = new Date(item.entry_date).getUTCDate();
-        acc[day] = item;
-        return acc;
-      }, {});
-      setMonthlyData(dataMap);
-    }
-    setLoading(false);
-  }, [user, selectedProduct, selectedMonth, selectedYear]);
-
-  useEffect(() => {
-    fetchMonthlyData();
-  }, [fetchMonthlyData]);
-  
-  useEffect(() => {
-    if (!user || !selectedProduct) return;
-
-    const handleRealtimeUpdate = (payload) => {
-      console.log('[Realtime] Mudança recebida no diário', payload);
-      const changedRecord = payload.new || (payload.eventType === 'DELETE' ? payload.old : null);
-      if (!changedRecord) return;
-      
-      const recordDate = new Date(changedRecord.entry_date);
-      
-      if (recordDate.getUTCFullYear() === selectedYear && recordDate.getUTCMonth() + 1 === selectedMonth) {
-          const day = recordDate.getUTCDate();
-          
-          setMonthlyData(prevData => {
-              const newData = { ...prevData };
-              if (payload.eventType === 'DELETE') {
-                  newData[day] = {}; 
-              } else {
-                  newData[day] = payload.new;
-              }
-              return newData;
-          });
-      }
-    };
-
-    const channel = supabase
-      .channel(`diario_de_bordo:${selectedProduct}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'daily_metrics',
-          filter: `product_id=eq.${selectedProduct}`,
-        },
-        handleRealtimeUpdate
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, selectedProduct, selectedMonth, selectedYear]);
+  }, [user, fetchProducts]);
 
   const totals = useMemo(() => {
     const filledDays = Object.values(monthlyData).filter(d => d.investment || d.revenue || d.sales);
@@ -320,20 +253,6 @@ export default function DiarioDeBordo() {
     setMonthlyData(prev => ({ ...prev, [day]: { ...(prev[day] || {}), [field]: value } }));
   };
 
-  const handleSave = async (day, dataToSave) => {
-    const payload = {
-        user_id: user.id,
-        product_id: selectedProduct,
-        entry_date: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-        investment: dataToSave.investment || 0,
-        revenue: dataToSave.revenue || 0,
-        sales: dataToSave.sales || null,
-        notes: dataToSave.notes,
-    };
-    const { error } = await supabase.from('daily_metrics').upsert(payload, { onConflict: 'user_id, product_id, entry_date' });
-    if (error) toast.error(`Falha ao salvar: ${error.message}`);
-  };
-
   const openNotesModal = (day) => {
     setSelectedDayForNotes(day);
     setIsNotesModalOpen(true);
@@ -342,6 +261,8 @@ export default function DiarioDeBordo() {
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   const months = Array.from({length: 12}, (e, i) => new Date(null, i + 1, null).toLocaleDateString("pt-BR", {month: "long"}));
   const years = [new Date().getFullYear(), new Date().getFullYear() - 1];
+  
+  const isLoading = loading || productLoading;
 
   return (
     <div className="text-white px-4 py-10">
@@ -349,7 +270,7 @@ export default function DiarioDeBordo() {
 
       <div className="w-full max-w-7xl mx-auto mt-8">
         
-        {!loading && allProducts.length > 0 && (
+        {!isLoading && allProducts.length > 0 && (
           <div className="mb-10 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                   <div className="md:col-span-3 bg-zinc-900 border border-zinc-700 rounded-2xl p-6 flex flex-col justify-center text-center shadow-2xl shadow-legiao-blue/10">
@@ -419,7 +340,7 @@ export default function DiarioDeBordo() {
             </div>
 
             <div className="space-y-3 md:space-y-1 mt-2">
-                {loading ? (
+                {isLoading ? (
                     <div className="flex items-center justify-center h-64"><LoaderCircle className="animate-spin" /></div>
                 ) : allProducts.length === 0 ? (
                     <div className="text-center py-10 text-zinc-500">
@@ -433,7 +354,7 @@ export default function DiarioDeBordo() {
                 )}
             </div>
             
-            {!loading && allProducts.length > 0 && (
+            {!isLoading && allProducts.length > 0 && (
                 <div className="p-3 mt-4 border-t-2 border-zinc-600 font-bold text-sm">
                     {/* --- Mobile Totals --- */}
                     <div className="md:hidden space-y-2">

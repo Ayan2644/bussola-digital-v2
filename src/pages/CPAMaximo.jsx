@@ -1,11 +1,12 @@
 // Local de Instalação: src/pages/CPAMaximo.jsx
-// CÓDIGO COMPLETO E ATUALIZADO
+// CÓDIGO COMPLETO E ATUALIZADO com feedback visual
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { Trash2, PlusCircle, Save, LoaderCircle, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useToolData } from '../hooks/useToolData'; // <- Importando o hook
+import { useToolData } from '../hooks/useToolData';
+import InfoCard from '../components/ui/InfoCard'; // Importamos o InfoCard
 
 // --- COMPONENTES DE UI ---
 function NumberInput({ label, value, onChange, placeholder }) {
@@ -42,7 +43,6 @@ function ResultItem({ label, value }) {
 export default function CPAMaximo() {
   const { user } = useAuth();
 
-  // --- ESTADO INICIAL DA FERRAMENTA ---
   const initialState = {
     productPrice: 197,
     platformPercentage: 6.99,
@@ -51,8 +51,28 @@ export default function CPAMaximo() {
       { id: 1, name: 'Impostos', value: 10, type: 'percentage' },
     ],
   };
+  
+  const [flashedField, setFlashedField] = useState(null);
 
-  // --- CENTRALIZANDO A LÓGICA DE DADOS ---
+  const handleRealtimeUpdate = useCallback((oldData, newData) => {
+      // Como os custos variáveis são um array, uma simples comparação de chaves não funciona.
+      // Vamos simplificar e piscar o card de "Custos Variáveis" se o array mudar.
+      if (JSON.stringify(oldData.variableCosts) !== JSON.stringify(newData.variableCosts)) {
+          setFlashedField('variableCosts');
+          setTimeout(() => setFlashedField(null), 2000);
+          return;
+      }
+
+      // Verificamos os outros campos
+      for (const key in newData) {
+          if (key !== 'variableCosts' && newData[key] !== oldData[key]) {
+              setFlashedField(key);
+              setTimeout(() => setFlashedField(null), 2000);
+              break;
+          }
+      }
+  }, []);
+
   const {
     data,
     setData,
@@ -60,7 +80,7 @@ export default function CPAMaximo() {
     isSaving,
     saveStatus,
     saveData
-  } = useToolData('cpa_maximo', initialState);
+  } = useToolData('cpa_maximo', initialState, handleRealtimeUpdate);
 
   const addVariableCost = () => setData(prev => ({...prev, variableCosts: [...prev.variableCosts, { id: Date.now(), name: '', value: 0, type: 'fixed' }]}));
   const removeVariableCost = (id) => setData(prev => ({...prev, variableCosts: prev.variableCosts.filter(cost => cost.id !== id)}));
@@ -95,19 +115,16 @@ export default function CPAMaximo() {
         <div className="w-full max-w-6xl mt-2 grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="bg-[#161616] p-6 rounded-2xl border border-zinc-800 shadow-lg space-y-6">
               <h2 className="text-xl font-semibold text-center text-[#008CFF]">Dados de Entrada</h2>
-              <div className="space-y-2">
-                  <h3 className="text-md font-semibold text-zinc-300 border-b border-zinc-700 pb-2">Informações do Produto</h3>
+              <InfoCard title="Informações do Produto" flash={flashedField === 'productPrice'}>
                   <NumberInput label="Valor do Produto (R$)" value={data.productPrice} onChange={(v) => handleChange('productPrice', v)} placeholder="Digite o valor do seu produto" />
-              </div>
-              <div className="space-y-2">
-                  <h3 className="text-md font-semibold text-zinc-300 border-b border-zinc-700 pb-2">Taxa de Plataforma</h3>
+              </InfoCard>
+              <InfoCard title="Taxa de Plataforma" flash={flashedField === 'platformPercentage' || flashedField === 'platformFixed'}>
                    <div className="grid grid-cols-2 gap-4">
                       <NumberInput label="Percentual (%)" value={data.platformPercentage} onChange={(v) => handleChange('platformPercentage', v)} placeholder="Ex: 6.99" />
                       <NumberInput label="Taxa Fixa (R$)" value={data.platformFixed} onChange={(v) => handleChange('platformFixed', v)} placeholder="Ex: 2.50" />
                    </div>
-              </div>
-              <div className="space-y-4">
-                  <h3 className="text-md font-semibold text-zinc-300 border-b border-zinc-700 pb-2">Custos Variáveis</h3>
+              </InfoCard>
+              <InfoCard title="Custos Variáveis" flash={flashedField === 'variableCosts'}>
                   {data.variableCosts.map(cost => (
                     <div key={cost.id} className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-6"><input type="text" value={cost.name} onChange={(e) => updateVariableCost(cost.id, 'name', e.target.value)} placeholder="Nome do custo" className="input w-full"/></div>
@@ -117,8 +134,7 @@ export default function CPAMaximo() {
                     </div>
                   ))}
                   <button onClick={addVariableCost} className="flex items-center justify-center gap-2 text-sm text-[#008CFF] hover:text-cyan-300 transition w-full p-2 mt-2 rounded-lg border-2 border-dashed border-zinc-700 hover:border-zinc-600"><PlusCircle size={16}/> Adicionar Custo</button>
-              </div>
-               {/* --- BOTÃO DE SALVAR --- */}
+              </InfoCard>
                {user && (
                     <button
                         onClick={() => saveData(data)}

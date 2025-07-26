@@ -1,20 +1,28 @@
 // Local de Instalação: src/hooks/useToolData.js
-// VERSÃO FINAL, ESTABILIZADA E COM OTIMIZAÇÃO DE CONSOLE
+// CÓDIGO ATUALIZADO: Adicionado um callback para notificar sobre atualizações em tempo real.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
-export function useToolData(toolName, initialState) {
+// Adicionamos um novo parâmetro: onRealtimeUpdate
+export function useToolData(toolName, initialState, onRealtimeUpdate) {
   const { user } = useAuth();
   const [data, setData] = useState(initialState);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
 
-  // Usamos useRef para ter uma referência estável do estado inicial
   const stableInitialState = useRef(initialState);
+
+  // Criamos uma referência para o callback para que ele não precise ser
+  // uma dependência do useEffect, evitando recriações do listener.
+  const onRealtimeUpdateRef = useRef(onRealtimeUpdate);
+  useEffect(() => {
+    onRealtimeUpdateRef.current = onRealtimeUpdate;
+  }, [onRealtimeUpdate]);
+
 
   const fetchUserData = useCallback(async () => {
     if (!user) {
@@ -52,13 +60,11 @@ export function useToolData(toolName, initialState) {
     fetchUserData();
   }, [fetchUserData]);
 
-  // EFEITO PARA OUVIR MUDANÇAS EM TEMPO REAL COM OTIMIZAÇÃO
   useEffect(() => {
     if (!user) return;
 
     let subscribedChannel = null;
 
-    // Adicionamos um pequeno delay para evitar condições de corrida durante a navegação
     const timeoutId = setTimeout(() => {
         const channelId = `tool-${toolName}-${user.id}`;
         const channel = supabase.channel(channelId, {
@@ -76,7 +82,15 @@ export function useToolData(toolName, initialState) {
           (payload) => {
             if (payload.new?.tool_name === toolName) {
               console.log(`[Realtime] Atualização recebida para ${toolName}`);
-              setData(payload.new.data);
+              const newData = payload.new.data;
+              setData(newData);
+
+              // AQUI ESTÁ A MÁGICA:
+              // Se a função de callback (onRealtimeUpdate) existir, nós a chamamos
+              // passando os dados antigos e os novos para comparação.
+              if (onRealtimeUpdateRef.current) {
+                onRealtimeUpdateRef.current(data, newData);
+              }
             }
           }
         );
@@ -90,20 +104,18 @@ export function useToolData(toolName, initialState) {
           }
         });
 
-        // Guardamos o canal para poder desconectar na limpeza
         subscribedChannel = channel;
 
-    }, 100); // Delay de 100ms
+    }, 100);
 
-    // Função de limpeza
     return () => {
-      clearTimeout(timeoutId); // Limpa o timeout se o componente desmontar antes
+      clearTimeout(timeoutId);
       if (subscribedChannel) {
         console.log(`[Realtime] Desconectando do canal: ${subscribedChannel.topic}`);
         supabase.removeChannel(subscribedChannel);
       }
     };
-  }, [user, toolName]);
+  }, [user, toolName, data]); // Adicionamos 'data' aqui para ter acesso ao estado antigo no callback
 
   const saveData = async (currentData) => {
     if (!user) {
